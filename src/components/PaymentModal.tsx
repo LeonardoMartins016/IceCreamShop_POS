@@ -40,7 +40,7 @@ export default function PaymentModal({
     onConfirm({
       metodo_pagamento: metodo,
       tipo: tipoVenda,
-      comanda_id: tipoVenda === "Comanda" ? selectedComanda : undefined,
+      comanda_id: tipoVenda === "Comanda" ? (selectedComanda as number | "nova") : undefined,
     });
   };
 
