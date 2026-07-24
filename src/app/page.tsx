@@ -29,6 +29,7 @@ export default function CaixaPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [loadingCalc, setLoadingCalc] = useState(false);
   const [loadingVenda, setLoadingVenda] = useState(false);
+  const [isCartLoaded, setIsCartLoaded] = useState(false);
 
   const total = carrinho.reduce((sum, item) => sum + item.valor_total, 0);
 
@@ -50,6 +51,22 @@ export default function CaixaPage() {
     fetchProdutos();
     fetchComandas();
   }, [fetchProdutos, fetchComandas]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("pdv_carrinho");
+    if (saved) {
+      try {
+        setCarrinho(JSON.parse(saved));
+      } catch { /* silent */ }
+    }
+    setIsCartLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (isCartLoaded) {
+      localStorage.setItem("pdv_carrinho", JSON.stringify(carrinho));
+    }
+  }, [carrinho, isCartLoaded]);
 
   const handleSelectProduct = (produto: Produto) => {
     setSelectedProduto(produto);
@@ -105,16 +122,26 @@ export default function CaixaPage() {
   };
 
   const handleFinalizarVenda = async (data: {
-    metodo_pagamento: "Dinheiro" | "PIX";
+    metodo_pagamento: string;
     tipo: "Direta" | "Comanda";
-    comanda_id?: number;
+    comanda_id?: number | "nova";
   }) => {
     setLoadingVenda(true);
     try {
-      if (data.tipo === "Comanda" && data.comanda_id) {
+      let targetComandaId = data.comanda_id;
+      
+      if (data.tipo === "Comanda" && data.comanda_id === "nova") {
+        const createRes = await fetch("/api/comandas", { method: "POST" });
+        if (!createRes.ok) throw new Error("Erro ao criar nova comanda");
+        const novaComanda = await createRes.json();
+        targetComandaId = novaComanda.id;
+        toast.success(`Comanda #${novaComanda.numero} criada!`, { icon: "📝" });
+      }
+
+      if (data.tipo === "Comanda" && targetComandaId && targetComandaId !== "nova") {
         // Add items to the selected comanda
         for (const item of carrinho) {
-          const res = await fetch(`/api/comandas/${data.comanda_id}/itens`, {
+          const res = await fetch(`/api/comandas/${targetComandaId}/itens`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(item),

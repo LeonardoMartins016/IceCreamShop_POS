@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FiX, FiDollarSign } from "react-icons/fi";
+import { FiX, FiDollarSign, FiCreditCard } from "react-icons/fi";
 import { BsQrCode } from "react-icons/bs";
 import { CartItem } from "./Cart";
 
@@ -15,9 +15,9 @@ interface PaymentModalProps {
   itens: CartItem[];
   comandas: Comanda[];
   onConfirm: (data: {
-    metodo_pagamento: "Dinheiro" | "PIX";
+    metodo_pagamento: string;
     tipo: "Direta" | "Comanda";
-    comanda_id?: number;
+    comanda_id?: number | "nova";
   }) => void;
   onClose: () => void;
   loading?: boolean;
@@ -31,16 +31,16 @@ export default function PaymentModal({
   onClose,
   loading,
 }: PaymentModalProps) {
-  const [metodo, setMetodo] = useState<"Dinheiro" | "PIX">("Dinheiro");
+  const [metodo, setMetodo] = useState<string>("Dinheiro");
   const [tipoVenda, setTipoVenda] = useState<"Direta" | "Comanda">("Direta");
-  const [selectedComanda, setSelectedComanda] = useState<number | "">("");
+  const [selectedComanda, setSelectedComanda] = useState<number | "nova" | "">("");
 
   const handleConfirm = () => {
     if (tipoVenda === "Comanda" && !selectedComanda) return;
     onConfirm({
       metodo_pagamento: metodo,
       tipo: tipoVenda,
-      comanda_id: tipoVenda === "Comanda" ? Number(selectedComanda) : undefined,
+      comanda_id: tipoVenda === "Comanda" ? selectedComanda : undefined,
     });
   };
 
@@ -84,10 +84,10 @@ export default function PaymentModal({
         <div className="mb-5">
           <label className="label">Forma de Pagamento</label>
           <div className="grid grid-cols-2 gap-3">
-            {(["Dinheiro", "PIX"] as const).map((m) => (
+            {(["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"]).map((m) => (
               <button
                 key={m}
-                id={`payment-${m.toLowerCase()}`}
+                id={`payment-${m.toLowerCase().replace(/ /g, "-")}`}
                 onClick={() => setMetodo(m)}
                 className={`
                   flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-semibold text-sm
@@ -98,7 +98,9 @@ export default function PaymentModal({
                   }
                 `}
               >
-                {m === "Dinheiro" ? <FiDollarSign size={18} /> : <BsQrCode size={18} />}
+                {m === "Dinheiro" ? <FiDollarSign size={18} /> : 
+                 m === "PIX" ? <BsQrCode size={18} /> : 
+                 <FiCreditCard size={18} />}
                 {m}
               </button>
             ))}
@@ -133,17 +135,23 @@ export default function PaymentModal({
           <div className="mb-5">
             <label className="label" htmlFor="select-comanda">Vincular à Comanda</label>
             {comandas.length === 0 ? (
-              <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-                Nenhuma comanda aberta. Crie uma na tela de Comandas.
-              </p>
+              <button
+                onClick={() => setSelectedComanda("nova")}
+                className={`w-full py-3 rounded-xl border-2 font-semibold text-sm transition-all duration-150 ${
+                  selectedComanda === "nova" ? "border-brand-blue bg-brand-blue text-white shadow-sm" : "border-brand-blue text-brand-blue bg-blue-50"
+                }`}
+              >
+                + CRIAR NOVA COMANDA
+              </button>
             ) : (
               <select
                 id="select-comanda"
                 value={selectedComanda}
-                onChange={(e) => setSelectedComanda(Number(e.target.value))}
+                onChange={(e) => setSelectedComanda(e.target.value === "nova" ? "nova" : Number(e.target.value))}
                 className="select"
               >
-                <option value="">Selecione uma comanda...</option>
+                <option value="">Selecione ou crie uma comanda...</option>
+                <option value="nova" className="font-bold text-brand-blue">+ CRIAR NOVA COMANDA</option>
                 {comandas.map((c) => (
                   <option key={c.id} value={c.id}>
                     Comanda #{c.numero}

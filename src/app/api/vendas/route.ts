@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Venda sem itens" }, { status: 400 });
     }
 
-    if (!metodo_pagamento || !["Dinheiro", "PIX"].includes(metodo_pagamento)) {
+    if (!metodo_pagamento || !["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"].includes(metodo_pagamento)) {
       return NextResponse.json({ error: "Método de pagamento inválido" }, { status: 400 });
     }
 

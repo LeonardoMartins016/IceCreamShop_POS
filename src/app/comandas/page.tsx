@@ -40,7 +40,7 @@ export default function ComandasPage() {
   const [loadingCalc, setLoadingCalc] = useState(false);
   const [loadingClose, setLoadingClose] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
-  const [metodo, setMetodo] = useState<"Dinheiro" | "PIX">("Dinheiro");
+  const [metodo, setMetodo] = useState<string>("Dinheiro");
   const [loadingNew, setLoadingNew] = useState(false);
 
   const fetchComandas = useCallback(async () => {
@@ -374,10 +374,10 @@ export default function ComandasPage() {
             <div className="mb-5">
               <label className="label">Forma de Pagamento</label>
               <div className="grid grid-cols-2 gap-3">
-                {(["Dinheiro", "PIX"] as const).map((m) => (
+                {(["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"]).map((m) => (
                   <button
                     key={m}
-                    id={`fechar-${m.toLowerCase()}-btn`}
+                    id={`fechar-${m.toLowerCase().replace(/ /g, "-")}-btn`}
                     onClick={() => setMetodo(m)}
                     className={`
                       py-3 rounded-xl border-2 font-semibold text-sm transition-all

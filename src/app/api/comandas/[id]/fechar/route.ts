@@ -10,7 +10,7 @@ export async function POST(
     const body = await request.json();
     const { metodo_pagamento } = body;
 
-    if (!metodo_pagamento || !["Dinheiro", "PIX"].includes(metodo_pagamento)) {
+    if (!metodo_pagamento || !["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"].includes(metodo_pagamento)) {
       return NextResponse.json({ error: "Método de pagamento inválido" }, { status: 400 });
     }
 
