@@ -42,6 +42,7 @@ export default function ComandasPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [metodo, setMetodo] = useState<string>("Dinheiro");
   const [loadingNew, setLoadingNew] = useState(false);
+  const [valorRecebido, setValorRecebido] = useState<string>("");
 
   const fetchComandas = useCallback(async () => {
     try {
@@ -395,6 +396,29 @@ export default function ComandasPage() {
                   </button>
                 ))}
               </div>
+
+              {metodo === "Dinheiro" && (
+                <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                  <label className="label text-gray-700">Valor Recebido (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={totalComanda}
+                    value={valorRecebido}
+                    onChange={(e) => setValorRecebido(e.target.value)}
+                    className="input"
+                    placeholder="Ex: 50.00"
+                  />
+                  {Number(valorRecebido) > 0 && Number(valorRecebido) >= totalComanda && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center">
+                      <span className="text-sm font-semibold text-gray-600">Troco a devolver:</span>
+                      <span className="text-lg font-extrabold text-green-600">
+                        R$ {(Number(valorRecebido) - totalComanda).toFixed(2).replace(".", ",")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
               <button onClick={() => setShowPayment(false)} className="btn-ghost flex-1">
