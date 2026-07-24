@@ -13,7 +13,7 @@ const config: Config = {
           red: "#C13B56",
           blue: "#3E6FB0",
           orange: "#E8834B",
-          bg: "#F7F7F9",
+          bg: "#E8EAEE",
           dark: "#1A1A2E",
         },
       },

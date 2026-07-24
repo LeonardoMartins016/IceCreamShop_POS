@@ -380,11 +380,18 @@ export default function ComandasPage() {
                     id={`fechar-${m.toLowerCase().replace(/ /g, "-")}-btn`}
                     onClick={() => setMetodo(m)}
                     className={`
-                      py-3 rounded-xl border-2 font-semibold text-sm transition-all
+                      flex items-center gap-2 py-3 px-4 rounded-xl border-2 font-semibold text-sm transition-all
                       ${metodo === m ? "border-brand-red bg-brand-red text-white" : "border-gray-200 bg-white text-gray-600"}
                     `}
                   >
                     {m}
+                    <div
+                      className={`w-4 h-4 ml-auto rounded-full border-2 flex items-center justify-center shrink-0
+                        ${metodo === m ? "border-white" : "border-gray-300"}
+                      `}
+                    >
+                      {metodo === m && <div className="w-2 h-2 rounded-full bg-white" />}
+                    </div>
                   </button>
                 ))}
               </div>

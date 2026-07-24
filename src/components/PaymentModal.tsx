@@ -102,6 +102,13 @@ export default function PaymentModal({
                  m === "PIX" ? <BsQrCode size={18} /> : 
                  <FiCreditCard size={18} />}
                 {m}
+                <div
+                  className={`w-4 h-4 ml-auto rounded-full border-2 flex items-center justify-center shrink-0
+                    ${metodo === m ? "border-white" : "border-gray-300"}
+                  `}
+                >
+                  {metodo === m && <div className="w-2 h-2 rounded-full bg-white" />}
+                </div>
               </button>
             ))}
           </div>
