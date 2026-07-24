@@ -1,0 +1,91 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Produto {
+  id        Int         @id @default(autoincrement())
+  descricao String
+  valor     Decimal     @db.Decimal(10, 2)
+  tipo      String      @default("UN") // 'UN' ou 'KG'
+
+  promocoes  Promocao[]
+  comandaItens ComandaItem[]
+  vendaItens   VendaItem[]
+
+  @@map("produtos")
+}
+
+model Promocao {
+  id                Int     @id @default(autoincrement())
+  produto_id        Int
+  quantidade_minima Int
+  preco_promocional Decimal @db.Decimal(10, 2)
+
+  produto Produto @relation(fields: [produto_id], references: [id], onDelete: Cascade)
+
+  @@map("promocoes")
+}
+
+model Comanda {
+  id            Int      @id @default(autoincrement())
+  numero        Int
+  data_abertura DateTime @default(now())
+  status        String   @default("aberta") // 'aberta' ou 'fechada'
+
+  itens ComandaItem[]
+
+  @@map("comandas")
+}
+
+model ComandaItem {
+  id                 Int     @id @default(autoincrement())
+  comanda_id         Int
+  produto_id         Int
+  produto_descricao  String
+  quantidade         Decimal @db.Decimal(10, 3)
+  valor_unitario     Decimal @db.Decimal(10, 2)
+  valor_total        Decimal @db.Decimal(10, 2)
+  teve_promocao      Boolean @default(false)
+
+  comanda Comanda @relation(fields: [comanda_id], references: [id], onDelete: Cascade)
+  produto Produto @relation(fields: [produto_id], references: [id])
+
+  @@map("comanda_itens")
+}
+
+model Venda {
+  id                Int      @id @default(autoincrement())
+  data_hora         DateTime @default(now())
+  total             Decimal  @db.Decimal(10, 2)
+  metodo_pagamento  String   // 'Dinheiro' ou 'PIX'
+  tipo              String   @default("Direta") // 'Direta' ou 'Comanda'
+  numero_comanda    Int?
+
+  itens VendaItem[]
+
+  @@map("vendas")
+}
+
+model VendaItem {
+  id                Int     @id @default(autoincrement())
+  venda_id          Int
+  produto_id        Int
+  produto_descricao String
+  quantidade        Decimal @db.Decimal(10, 3)
+  valor_unitario    Decimal @db.Decimal(10, 2)
+  valor_total       Decimal @db.Decimal(10, 2)
+  teve_promocao     Boolean @default(false)
+
+  venda   Venda   @relation(fields: [venda_id], references: [id], onDelete: Cascade)
+  produto Produto @relation(fields: [produto_id], references: [id])
+
+  @@map("venda_itens")
+}
