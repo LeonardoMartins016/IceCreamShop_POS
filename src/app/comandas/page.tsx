@@ -114,7 +114,7 @@ export default function ComandasPage() {
       toast.success(`Comanda #${comanda.numero} criada!`);
       
       // Select the new comanda and open the add products modal
-      setSelected(comanda);
+      setSelected({ ...comanda, itens: comanda.itens || [] });
       setShowAddProducts(true);
       setShowNovaComandaModal(false);
       setNovaComandaNome("");

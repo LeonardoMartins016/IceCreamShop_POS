@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
 
     const comanda = await prisma.comanda.create({
       data: { numero, nome },
+      include: { itens: true },
     });
     return NextResponse.json(comanda, { status: 201 });
   } catch {
