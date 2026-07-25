@@ -18,8 +18,16 @@ export async function GET() {
   }
 }
 
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
+    let nome: string | undefined;
+    try {
+      const body = await request.json();
+      nome = body?.nome ?? undefined;
+    } catch {
+      // body vazio ou inválido — tudo bem, nome é opcional
+    }
+
     // Auto-increment numero based on max existing
     const last = await prisma.comanda.findFirst({
       orderBy: { numero: "desc" },
@@ -27,10 +35,11 @@ export async function POST(_request: NextRequest) {
     const numero = (last?.numero ?? 0) + 1;
 
     const comanda = await prisma.comanda.create({
-      data: { numero },
+      data: { numero, nome },
     });
     return NextResponse.json(comanda, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Erro ao criar comanda" }, { status: 500 });
   }
 }
+

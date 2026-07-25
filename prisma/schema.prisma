@@ -37,6 +37,7 @@ model Promocao {
 model Comanda {
   id            Int      @id @default(autoincrement())
   numero        Int
+  nome          String?  // nome opcional para identificar a comanda
   data_abertura DateTime @default(now())
   status        String   @default("aberta") // 'aberta' ou 'fechada'
 

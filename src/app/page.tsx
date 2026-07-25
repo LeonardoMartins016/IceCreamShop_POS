@@ -125,17 +125,23 @@ export default function CaixaPage() {
     metodo_pagamento: string;
     tipo: "Direta" | "Comanda";
     comanda_id?: number | "nova";
+    nome_comanda?: string;
   }) => {
     setLoadingVenda(true);
     try {
       let targetComandaId = data.comanda_id;
       
       if (data.tipo === "Comanda" && data.comanda_id === "nova") {
-        const createRes = await fetch("/api/comandas", { method: "POST" });
+        const createRes = await fetch("/api/comandas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nome: data.nome_comanda || undefined }),
+        });
         if (!createRes.ok) throw new Error("Erro ao criar nova comanda");
         const novaComanda = await createRes.json();
         targetComandaId = novaComanda.id;
-        toast.success(`Comanda #${novaComanda.numero} criada!`, { icon: "📝" });
+        const nomeLabel = novaComanda.nome ? ` — ${novaComanda.nome}` : "";
+        toast.success(`Comanda #${novaComanda.numero}${nomeLabel} criada!`, { icon: "📝" });
       }
 
       if (data.tipo === "Comanda" && targetComandaId && targetComandaId !== "nova") {
@@ -181,6 +187,7 @@ export default function CaixaPage() {
       setLoadingVenda(false);
     }
   };
+
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
