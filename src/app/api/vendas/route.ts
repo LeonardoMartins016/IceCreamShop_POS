@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const dataInicio = searchParams.get("dataInicio");
     const dataFim = searchParams.get("dataFim");
-    const metodoPagamento = searchParams.get("metodoPagamento");
+    const metodosPagamento = searchParams.getAll("metodoPagamento");
     const tipo = searchParams.get("tipo");
 
     // Build dynamic where clause
@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (metodoPagamento && metodoPagamento !== "Todos") {
-      where.metodo_pagamento = metodoPagamento;
+    if (metodosPagamento.length > 0 && !metodosPagamento.includes("Todos")) {
+      where.metodo_pagamento = { in: metodosPagamento };
     }
 
     if (tipo && tipo !== "Todos") {

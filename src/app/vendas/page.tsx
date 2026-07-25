@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { FiBarChart2, FiFilter, FiX, FiChevronRight } from "react-icons/fi";
+import { FiBarChart2, FiFilter, FiX, FiChevronRight, FiDownload } from "react-icons/fi";
 
 interface VendaItem {
   id: number;
@@ -42,7 +42,7 @@ export default function VendasPage() {
   const [filters, setFilters] = useState({
     dataInicio: today(),
     dataFim: today(),
-    metodoPagamento: "Todos",
+    metodoPagamento: ["Todos"],
     tipo: "Todos",
   });
 
@@ -52,7 +52,11 @@ export default function VendasPage() {
       const params = new URLSearchParams();
       if (filters.dataInicio) params.append("dataInicio", filters.dataInicio);
       if (filters.dataFim) params.append("dataFim", filters.dataFim);
-      if (filters.metodoPagamento !== "Todos") params.append("metodoPagamento", filters.metodoPagamento);
+      if (!filters.metodoPagamento.includes("Todos") && filters.metodoPagamento.length > 0) {
+        filters.metodoPagamento.forEach(m => params.append("metodoPagamento", m));
+      } else {
+        params.append("metodoPagamento", "Todos");
+      }
       if (filters.tipo !== "Todos") params.append("tipo", filters.tipo);
 
       const res = await fetch(`/api/vendas?${params.toString()}`);
@@ -68,6 +72,32 @@ export default function VendasPage() {
 
   const totalFiltrado = vendas.reduce((sum, v) => sum + Number(v.total), 0);
 
+  const [showPagamentoDropdown, setShowPagamentoDropdown] = useState(false);
+
+  const exportToCSV = () => {
+    if (vendas.length === 0) return;
+    const headers = ["ID", "Data", "Tipo", "Pagamento", "Total (R$)"];
+    const rows = vendas.map(v => [
+      v.id,
+      formatDate(v.data_hora).replace(",", ""),
+      v.tipo,
+      v.metodo_pagamento,
+      Number(v.total).toFixed(2).replace(".", ",")
+    ]);
+    
+    // Add BOM for Excel UTF-8 compatibility
+    const csvContent = "\uFEFF" + headers.join(";") + "\n" + rows.map(e => e.join(";")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `relatorio_vendas_${filters.dataInicio}_a_${filters.dataFim}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Header */}
@@ -78,11 +108,21 @@ export default function VendasPage() {
             <p className="text-xs text-gray-400 mt-0.5">Histórico de vendas</p>
           </div>
           {vendas.length > 0 && (
-            <div className="text-right">
-              <p className="text-xs text-gray-500 font-medium">{vendas.length} vendas</p>
-              <p className="text-xl font-extrabold text-brand-red">
-                R$ {totalFiltrado.toFixed(2).replace(".", ",")}
-              </p>
+            <div className="text-right flex items-center gap-4">
+              <div>
+                <p className="text-xs text-gray-500 font-medium">{vendas.length} vendas</p>
+                <p className="text-xl font-extrabold text-brand-red">
+                  R$ {totalFiltrado.toFixed(2).replace(".", ",")}
+                </p>
+              </div>
+              <button 
+                onClick={exportToCSV}
+                className="btn-ghost flex items-center gap-2 border border-gray-200 px-3 py-2"
+                title="Exportar Excel/CSV"
+              >
+                <FiDownload size={18} />
+                <span className="text-sm font-bold">Exportar</span>
+              </button>
             </div>
           )}
         </div>
@@ -109,18 +149,48 @@ export default function VendasPage() {
               className="input text-sm py-2 w-40"
             />
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 relative">
             <label className="label text-xs">Pagamento</label>
-            <select
-              id="filtro-pagamento"
-              value={filters.metodoPagamento}
-              onChange={(e) => setFilters((f) => ({ ...f, metodoPagamento: e.target.value }))}
-              className="select text-sm py-2 w-36"
+            <button
+               onClick={() => setShowPagamentoDropdown(!showPagamentoDropdown)}
+               className="input text-sm py-2 w-48 text-left bg-white border-2 border-gray-200 rounded-xl flex justify-between items-center"
             >
-              <option>Todos</option>
-              <option>Dinheiro</option>
-              <option>PIX</option>
-            </select>
+               <span className="truncate pr-2">
+                 {filters.metodoPagamento.includes("Todos") || filters.metodoPagamento.length === 0 
+                   ? "Todos" 
+                   : filters.metodoPagamento.join(", ")}
+               </span>
+               <FiChevronRight className={`shrink-0 transition-transform ${showPagamentoDropdown ? 'rotate-90' : ''}`} />
+            </button>
+            
+            {showPagamentoDropdown && (
+               <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-100 rounded-xl shadow-xl z-20 p-2 flex flex-col gap-1">
+                  {["Todos", "Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"].map(opt => (
+                    <label key={opt} className="flex items-center gap-2 text-sm p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+                      <input 
+                        type="checkbox"
+                        checked={filters.metodoPagamento.includes(opt)}
+                        onChange={() => {
+                          setFilters(f => {
+                             let newArr = [...f.metodoPagamento];
+                             if (opt === "Todos") {
+                               newArr = ["Todos"];
+                             } else {
+                               newArr = newArr.filter(x => x !== "Todos");
+                               if (newArr.includes(opt)) newArr = newArr.filter(x => x !== opt);
+                               else newArr.push(opt);
+                               if (newArr.length === 0) newArr = ["Todos"];
+                             }
+                             return { ...f, metodoPagamento: newArr };
+                          });
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-brand-red focus:ring-brand-red"
+                      />
+                      <span className="font-medium text-gray-700">{opt}</span>
+                    </label>
+                  ))}
+               </div>
+            )}
           </div>
           <div className="flex flex-col gap-1">
             <label className="label text-xs">Tipo</label>
@@ -137,7 +207,10 @@ export default function VendasPage() {
           </div>
           <button
             id="limpar-filtros-btn"
-            onClick={() => setFilters({ dataInicio: today(), dataFim: today(), metodoPagamento: "Todos", tipo: "Todos" })}
+            onClick={() => {
+              setFilters({ dataInicio: today(), dataFim: today(), metodoPagamento: ["Todos"], tipo: "Todos" });
+              setShowPagamentoDropdown(false);
+            }}
             className="btn-ghost py-2 px-3 text-sm flex items-center gap-1"
           >
             <FiFilter size={14} /> Limpar
