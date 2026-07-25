@@ -76,28 +76,50 @@ export default function CaixaPage() {
     if (!selectedProduto) return;
     setLoadingCalc(true);
     try {
+      // Verifica se o produto já está no carrinho
+      const existing = carrinho.find((item) => item.produto_id === selectedProduto.id);
+      const quantidadeTotal = existing ? existing.quantidade + quantidade : quantidade;
+
       const res = await fetch("/api/calcular-preco", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ produto_id: selectedProduto.id, quantidade }),
+        body: JSON.stringify({ produto_id: selectedProduto.id, quantidade: quantidadeTotal }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      const key = `${selectedProduto.id}-${Date.now()}`;
-      setCarrinho((prev) => [
-        ...prev,
-        {
-          key,
-          produto_id: data.produto_id,
-          produto_descricao: data.produto_descricao,
-          tipo: data.tipo,
-          quantidade: data.quantidade,
-          valor_unitario: data.valor_unitario,
-          valor_total: data.valor_total,
-          teve_promocao: data.teve_promocao,
-        },
-      ]);
+      if (existing) {
+        // Atualiza o item existente com a quantidade somada e preço recalculado
+        setCarrinho((prev) =>
+          prev.map((item) =>
+            item.produto_id === selectedProduto.id
+              ? {
+                  ...item,
+                  quantidade: data.quantidade,
+                  valor_unitario: data.valor_unitario,
+                  valor_total: data.valor_total,
+                  teve_promocao: data.teve_promocao,
+                }
+              : item
+          )
+        );
+      } else {
+        // Produto novo no carrinho
+        const key = `${selectedProduto.id}-${Date.now()}`;
+        setCarrinho((prev) => [
+          ...prev,
+          {
+            key,
+            produto_id: data.produto_id,
+            produto_descricao: data.produto_descricao,
+            tipo: data.tipo,
+            quantidade: data.quantidade,
+            valor_unitario: data.valor_unitario,
+            valor_total: data.valor_total,
+            teve_promocao: data.teve_promocao,
+          },
+        ]);
+      }
 
       if (data.teve_promocao) {
         toast.success(`Promoção aplicada! R$ ${data.valor_unitario.toFixed(2).replace(".", ",")} por unidade`, {
@@ -112,6 +134,7 @@ export default function CaixaPage() {
       setLoadingCalc(false);
     }
   };
+
 
   const handleRemoveItem = (key: string) => {
     setCarrinho((prev) => prev.filter((item) => item.key !== key));
