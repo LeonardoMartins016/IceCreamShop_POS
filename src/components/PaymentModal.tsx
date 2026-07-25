@@ -254,6 +254,31 @@ export default function PaymentModal({
             </div>
           </details>
 
+          {/* Sale type */}
+          <div className="mb-5">
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+              Tipo de Venda
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {(["Direta", "Comanda"] as const).map((t) => (
+                <button
+                  key={t}
+                  id={`tipo-${t.toLowerCase()}`}
+                  onClick={() => setTipoVenda(t)}
+                  className={`
+                    py-3.5 rounded-2xl font-bold text-sm transition-all duration-200 border-2
+                    ${tipoVenda === t
+                      ? "border-brand-blue bg-gradient-to-br from-blue-50 to-blue-100/60 text-brand-blue shadow-md shadow-blue-100 ring-4 ring-blue-500/10"
+                      : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:shadow-sm"
+                    }
+                  `}
+                >
+                  {t === "Direta" ? "💳 Direta" : "📋 Comanda"}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Payment method */}
           <div className="mb-6">
             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
@@ -371,32 +396,7 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* Sale type */}
-          <div className="mb-5">
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-              Tipo de Venda
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              {(["Direta", "Comanda"] as const).map((t) => (
-                <button
-                  key={t}
-                  id={`tipo-${t.toLowerCase()}`}
-                  onClick={() => setTipoVenda(t)}
-                  className={`
-                    py-3.5 rounded-2xl font-bold text-sm transition-all duration-200 border-2
-                    ${tipoVenda === t
-                      ? "border-brand-blue bg-gradient-to-br from-blue-50 to-blue-100/60 text-brand-blue shadow-md shadow-blue-100 ring-4 ring-blue-500/10"
-                      : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:shadow-sm"
-                    }
-                  `}
-                >
-                  {t === "Direta" ? "💳 Direta" : "📋 Comanda"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Comanda selection */}
+          {/* Comanda selection — moved to before payment method, shown right after tipo selection */}
           {tipoVenda === "Comanda" && (
             <div className="mb-5 animate-slide-in">
               <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3" htmlFor="select-comanda">
