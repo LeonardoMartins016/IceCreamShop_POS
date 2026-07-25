@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { FiPlus, FiFileText, FiTrash2, FiX, FiChevronRight, FiDollarSign, FiCreditCard, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
@@ -36,8 +36,8 @@ interface Comanda {
 const METODOS_PAGAMENTO = [
   { key: "Dinheiro", icon: FiDollarSign, color: "emerald" },
   { key: "PIX", icon: BsQrCode, color: "violet" },
-  { key: "CartÃ£o de CrÃ©dito", icon: FiCreditCard, color: "blue" },
-  { key: "CartÃ£o de DÃ©bito", icon: FiCreditCard, color: "amber" },
+  { key: "Cartão de Crédito", icon: FiCreditCard, color: "blue" },
+  { key: "Cartão de Débito", icon: FiCreditCard, color: "amber" },
 ] as const;
 
 function getMetodoStyle(m: string, selectedMetodo: string, color: string) {
@@ -150,8 +150,8 @@ export default function ComandasPage() {
       await refreshSelected(selected.id);
       setSelectedProduto(null);
       setShowAddProducts(false);
-      if (calc.teve_promocao) toast.success("PromoÃ§Ã£o aplicada!", { icon: "ðŸ·ï¸" });
-      else toast.success("Item adicionado Ã  comanda!");
+      if (calc.teve_promocao) toast.success("Promoção aplicada!", { icon: "🏷️" });
+      else toast.success("Item adicionado à comanda!");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao adicionar item");
     } finally {
@@ -232,16 +232,16 @@ export default function ComandasPage() {
         </button>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Comanda list */}
-        <div className="w-72 border-r border-gray-100 bg-white overflow-y-auto p-4 space-y-2">
+        <div className="w-full md:w-72 border-b md:border-b-0 md:border-r border-gray-100 bg-white overflow-y-auto p-4 space-y-2 shrink-0 md:h-auto max-h-[40vh] md:max-h-none">
           {comandas.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
                 <FiFileText className="text-gray-300" size={28} />
               </div>
               <p className="text-gray-500 font-medium text-sm">Nenhuma comanda aberta</p>
-              <p className="text-gray-400 text-xs mt-1">Clique em "Nova Comanda" para comeÃ§ar</p>
+              <p className="text-gray-400 text-xs mt-1">Clique em "Nova Comanda" para começar</p>
             </div>
           ) : (
             comandas.map((comanda) => {
@@ -271,7 +271,7 @@ export default function ComandasPage() {
                       <p className="text-xs font-semibold text-brand-blue mt-0.5">{comanda.nome}</p>
                     )}
                     <p className="text-xs text-gray-400 mt-1">
-                      {comanda.itens.length} {comanda.itens.length === 1 ? "item" : "itens"} â€¢{" "}
+                      {comanda.itens.length} {comanda.itens.length === 1 ? "item" : "itens"} •{" "}
                       R$ {total.toFixed(2).replace(".", ",")}
                     </p>
                   </div>
@@ -300,7 +300,7 @@ export default function ComandasPage() {
                   <h2 className="text-2xl font-extrabold text-brand-dark">
                     Comanda #{selected.numero}
                     {selected.nome && (
-                      <span className="ml-2 text-lg font-semibold text-brand-blue">â€” {selected.nome}</span>
+                      <span className="ml-2 text-lg font-semibold text-brand-blue">— {selected.nome}</span>
                     )}
                   </h2>
                   <p className="text-sm text-gray-500 mt-0.5">
@@ -345,7 +345,7 @@ export default function ComandasPage() {
                           <p className="font-semibold text-brand-dark text-sm">{item.produto_descricao}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-xs text-gray-500">
-                              {Number(item.quantidade).toFixed(3).replace(/\.?0+$/, "")} Ã— R${" "}
+                              {Number(item.quantidade).toFixed(3).replace(/\.?0+$/, "")} × R${" "}
                               {Number(item.valor_unitario).toFixed(2).replace(".", ",")}
                             </span>
                             {item.teve_promocao && (
@@ -379,8 +379,8 @@ export default function ComandasPage() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[80vh] flex flex-col p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-brand-dark">
-                Adicionar produto Ã  Comanda #{selected.numero}
-                {selected.nome && <span className="ml-1 text-brand-blue">â€” {selected.nome}</span>}
+                Adicionar produto à Comanda #{selected.numero}
+                {selected.nome && <span className="ml-1 text-brand-blue">— {selected.nome}</span>}
               </h3>
               <button onClick={() => setShowAddProducts(false)} className="text-gray-400 hover:text-gray-600 p-1">
                 <FiX size={20} />
@@ -422,7 +422,7 @@ export default function ComandasPage() {
                 <FiAlertCircle className="text-white" size={30} />
               </div>
               <h3 className="text-lg font-bold text-brand-dark">Fechar Comanda?</h3>
-              <p className="text-sm text-gray-500 mt-1">Esta aÃ§Ã£o nÃ£o pode ser desfeita</p>
+              <p className="text-sm text-gray-500 mt-1">Esta ação não pode ser desfeita</p>
             </div>
 
             <div className="px-6 py-4">
@@ -430,7 +430,7 @@ export default function ComandasPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Comanda</span>
                   <span className="font-semibold text-brand-dark">
-                    #{selected.numero}{selected.nome ? ` â€” ${selected.nome}` : ""}
+                    #{selected.numero}{selected.nome ? ` — ${selected.nome}` : ""}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -569,7 +569,7 @@ export default function ComandasPage() {
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
                   Forma de Pagamento
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {METODOS_PAGAMENTO.map(({ key, icon: Icon, color }) => {
                     const style = getMetodoStyle(key, metodo, color);
                     return (

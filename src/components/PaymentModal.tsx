@@ -286,7 +286,7 @@ export default function PaymentModal({
             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
               Tipo de Venda
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(["Direta", "Comanda"] as const).map((t) => (
                 <button
                   key={t}
@@ -393,7 +393,7 @@ export default function PaymentModal({
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
                   Forma de Pagamento
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {METODOS.map(({ key, icon: Icon, color }) => {
                     const style = getMetodoStyle(key, color);
                     return (
