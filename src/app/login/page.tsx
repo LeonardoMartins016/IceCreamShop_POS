@@ -23,7 +23,7 @@ export default function LoginPage() {
 
       if (res.ok) {
         toast.success("Login realizado com sucesso!");
-        router.push("/");
+        window.location.href = "/";
       } else {
         const data = await res.json();
         toast.error(data.error || "Erro ao fazer login");

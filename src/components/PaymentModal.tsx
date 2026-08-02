@@ -17,7 +17,7 @@ interface PaymentModalProps {
   comandas: Comanda[];
   onConfirm: (data: {
     metodo_pagamento: string;
-    tipo: "Direta" | "Comanda";
+    tipo: "Venda Rápida" | "Comanda";
     comanda_id?: number | "nova";
     nome_comanda?: string;
   }) => void;
@@ -41,7 +41,7 @@ export default function PaymentModal({
   loading,
 }: PaymentModalProps) {
   const [metodo, setMetodo] = useState<string>("Dinheiro");
-  const [tipoVenda, setTipoVenda] = useState<"Direta" | "Comanda" | "">("");
+  const [tipoVenda, setTipoVenda] = useState<"Venda Rápida" | "Comanda" | "">("");
   const [selectedComanda, setSelectedComanda] = useState<number | "nova" | "">("");
   const [nomeComanda, setNomeComanda] = useState<string>("");
   const [valorRecebido, setValorRecebido] = useState<string>("");
@@ -49,7 +49,7 @@ export default function PaymentModal({
 
   const valorRecebidoNum = Number(valorRecebido);
   const dinheiroValido =
-    tipoVenda !== "Direta" ||
+    tipoVenda !== "Venda Rápida" ||
     metodo !== "Dinheiro" ||
     (valorRecebidoNum > 0 && valorRecebidoNum >= total);
   const comandaValida = tipoVenda !== "Comanda" || !!selectedComanda;
@@ -57,7 +57,7 @@ export default function PaymentModal({
   const canConfirm = tipoSelecionado && dinheiroValido && comandaValida && !loading;
 
   const troco =
-    tipoVenda === "Direta" &&
+    tipoVenda === "Venda Rápida" &&
     metodo === "Dinheiro" &&
     valorRecebidoNum > 0 &&
     valorRecebidoNum >= total
@@ -72,7 +72,7 @@ export default function PaymentModal({
   const handleFinalConfirm = () => {
     onConfirm({
       metodo_pagamento: tipoVenda === "Comanda" ? "Comanda" : metodo,
-      tipo: tipoVenda as "Direta" | "Comanda",
+      tipo: tipoVenda as "Venda Rápida" | "Comanda",
       comanda_id:
         tipoVenda === "Comanda"
           ? (selectedComanda as number | "nova")
@@ -150,7 +150,7 @@ export default function PaymentModal({
                 <span className="text-gray-500">Tipo</span>
                 <span className="font-semibold text-brand-dark">{tipoVenda}</span>
               </div>
-              {tipoVenda === "Direta" && (
+              {tipoVenda === "Venda Rápida" && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Pagamento</span>
                   <span className="font-semibold text-brand-dark">{metodo}</span>
@@ -287,7 +287,7 @@ export default function PaymentModal({
               Tipo de Venda
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(["Direta", "Comanda"] as const).map((t) => (
+              {(["Venda Rápida", "Comanda"] as const).map((t) => (
                 <button
                   key={t}
                   id={`tipo-${t.toLowerCase()}`}
@@ -305,10 +305,10 @@ export default function PaymentModal({
                     }
                   `}
                 >
-                  <span className="text-2xl">{t === "Direta" ? "💳" : "📋"}</span>
+                  <span className="text-2xl">{t === "Venda Rápida" ? "💳" : "📋"}</span>
                   <span>{t}</span>
                   <span className="text-[10px] font-normal opacity-60">
-                    {t === "Direta" ? "Paga agora" : "Paga depois"}
+                    {t === "Venda Rápida" ? "Paga agora" : "Paga depois"}
                   </span>
                 </button>
               ))}
@@ -387,7 +387,7 @@ export default function PaymentModal({
           )}
 
           {/* ── STEP 2B: Se DIRETA → meios de pagamento ── */}
-          {tipoVenda === "Direta" && (
+          {tipoVenda === "Venda Rápida" && (
             <div className="animate-slide-in">
               <div className="mb-6">
                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
@@ -525,7 +525,7 @@ export default function PaymentModal({
           >
             {!tipoSelecionado ? (
               "Selecione o tipo"
-            ) : tipoVenda === "Direta" && metodo === "Dinheiro" && !dinheiroValido ? (
+            ) : tipoVenda === "Venda Rápida" && metodo === "Dinheiro" && !dinheiroValido ? (
               <>
                 <FiDollarSign size={16} />
                 Informe o valor

@@ -140,13 +140,45 @@ export default function CaixaPage() {
     setCarrinho((prev) => prev.filter((item) => item.key !== key));
   };
 
+  const handleDecreaseItem = async (key: string) => {
+    const item = carrinho.find((i) => i.key === key);
+    if (!item || item.quantidade <= 1) return;
+
+    const novaQuantidade = item.quantidade - 1;
+    try {
+      const res = await fetch("/api/calcular-preco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ produto_id: item.produto_id, quantidade: novaQuantidade }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setCarrinho((prev) =>
+        prev.map((i) =>
+          i.key === key
+            ? {
+                ...i,
+                quantidade: data.quantidade,
+                valor_unitario: data.valor_unitario,
+                valor_total: data.valor_total,
+                teve_promocao: data.teve_promocao,
+              }
+            : i
+        )
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao recalcular preço");
+    }
+  };
+
   const handleClearCart = () => {
     setCarrinho([]);
   };
 
   const handleFinalizarVenda = async (data: {
     metodo_pagamento: string;
-    tipo: "Direta" | "Comanda";
+    tipo: "Venda Rápida" | "Comanda";
     comanda_id?: number | "nova";
     nome_comanda?: string;
   }) => {
@@ -189,7 +221,7 @@ export default function CaixaPage() {
           body: JSON.stringify({
             itens: carrinho,
             metodo_pagamento: data.metodo_pagamento,
-            tipo: "Direta",
+            tipo: "Venda Rápida",
           }),
         });
         if (!res.ok) {
@@ -267,6 +299,7 @@ export default function CaixaPage() {
             <Cart
               itens={carrinho}
               onRemove={handleRemoveItem}
+              onDecrease={handleDecreaseItem}
               total={total}
             />
           </div>

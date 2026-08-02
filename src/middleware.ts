@@ -2,6 +2,20 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Allow public routes
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/api/login') ||
+    pathname.startsWith('/api/health') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon.ico') ||
+    /\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/.test(pathname)
+  ) {
+    return NextResponse.next();
+  }
+
   const authCookie = request.cookies.get('auth_token');
 
   if (!authCookie || authCookie.value !== 'authenticated') {
@@ -12,5 +26,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!api/login|login|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/((?!_next/static|_next/image).*)'],
 };

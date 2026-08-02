@@ -1,6 +1,6 @@
 "use client";
 
-import { FiTrash2, FiShoppingCart, FiTag } from "react-icons/fi";
+import { FiTrash2, FiShoppingCart, FiTag, FiMinus } from "react-icons/fi";
 
 export interface CartItem {
   key: string;
@@ -16,10 +16,11 @@ export interface CartItem {
 interface CartProps {
   itens: CartItem[];
   onRemove: (key: string) => void;
+  onDecrease: (key: string) => void;
   total: number;
 }
 
-export default function Cart({ itens, onRemove, total }: CartProps) {
+export default function Cart({ itens, onRemove, onDecrease, total }: CartProps) {
   if (itens.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -66,19 +67,34 @@ export default function Cart({ itens, onRemove, total }: CartProps) {
             </div>
           </div>
 
-          {/* Total + remove */}
+          {/* Total + actions */}
           <div className="shrink-0 flex flex-col items-end gap-1">
             <span className="font-bold text-sm text-brand-dark">
               R$ {item.valor_total.toFixed(2).replace(".", ",")}
             </span>
-            <button
-              onClick={() => onRemove(item.key)}
-              id={`remove-item-${item.key}`}
-              className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all"
-              aria-label="Remover item"
-            >
-              <FiTrash2 size={14} />
-            </button>
+            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
+              {/* Decrease by 1 button — only for UN items with qty > 1 */}
+              {item.tipo !== "KG" && item.quantidade > 1 && (
+                <button
+                  onClick={() => onDecrease(item.key)}
+                  id={`decrease-item-${item.key}`}
+                  className="w-6 h-6 rounded-md bg-amber-50 border border-amber-200 text-amber-600 hover:bg-amber-100 hover:text-amber-700 flex items-center justify-center transition-all"
+                  aria-label="Diminuir 1 unidade"
+                  title="Diminuir 1 unidade"
+                >
+                  <FiMinus size={12} />
+                </button>
+              )}
+              {/* Remove all button */}
+              <button
+                onClick={() => onRemove(item.key)}
+                id={`remove-item-${item.key}`}
+                className="text-red-400 hover:text-red-600 transition-all"
+                aria-label="Remover item"
+              >
+                <FiTrash2 size={14} />
+              </button>
+            </div>
           </div>
         </div>
       ))}

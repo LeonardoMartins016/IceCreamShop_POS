@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       data: {
         total,
         metodo_pagamento,
-        tipo: tipo ?? "Direta",
+        tipo: tipo ?? "Venda Rápida",
         numero_comanda: numero_comanda ?? null,
         itens: {
           create: itens.map((item: {

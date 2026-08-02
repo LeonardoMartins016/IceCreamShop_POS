@@ -67,7 +67,7 @@ model Venda {
   data_hora         DateTime @default(now())
   total             Decimal  @db.Decimal(10, 2)
   metodo_pagamento  String   // 'Dinheiro' ou 'PIX'
-  tipo              String   @default("Direta") // 'Direta' ou 'Comanda'
+  tipo              String   @default("Venda Rápida") // 'Venda Rápida' ou 'Comanda'
   numero_comanda    Int?
 
   itens VendaItem[]

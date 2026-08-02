@@ -74,25 +74,93 @@ export default function VendasPage() {
 
   const [showPagamentoDropdown, setShowPagamentoDropdown] = useState(false);
 
-  const exportToCSV = () => {
+  const exportToExcel = () => {
     if (vendas.length === 0) return;
-    const headers = ["ID", "Data", "Tipo", "Pagamento", "Total (R$)"];
-    const rows = vendas.map(v => [
-      v.id,
-      formatDate(v.data_hora).replace(",", ""),
-      v.tipo,
-      v.metodo_pagamento,
-      Number(v.total).toFixed(2).replace(".", ",")
-    ]);
-    
-    // Add BOM for Excel UTF-8 compatibility
-    const csvContent = "\uFEFF" + headers.join(";") + "\n" + rows.map(e => e.join(";")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+    const periodoInicio = filters.dataInicio
+      ? new Date(filters.dataInicio + "T00:00:00").toLocaleDateString("pt-BR")
+      : "—";
+    const periodoFim = filters.dataFim
+      ? new Date(filters.dataFim + "T00:00:00").toLocaleDateString("pt-BR")
+      : "—";
+
+    // Build styled HTML table for Excel
+    let html = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<!--[if gte mso 9]>
+<xml>
+<x:ExcelWorkbook>
+<x:ExcelWorksheets>
+<x:ExcelWorksheet>
+<x:Name>Vendas</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet>
+</x:ExcelWorksheets>
+</x:ExcelWorkbook>
+</xml>
+<![endif]-->
+<style>
+  td, th { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+  .header-title { font-size: 16pt; font-weight: bold; color: #C13B56; }
+  .header-sub { font-size: 10pt; color: #666666; }
+  .col-header { background-color: #C13B56; color: #FFFFFF; font-weight: bold; text-align: center; padding: 8px 12px; border: 1px solid #A0324A; }
+  .row-even { background-color: #FFF5F7; }
+  .row-odd { background-color: #FFFFFF; }
+  .cell { padding: 6px 12px; border: 1px solid #E5E7EB; vertical-align: middle; }
+  .cell-id { text-align: center; font-weight: bold; color: #C13B56; }
+  .cell-money { text-align: right; font-weight: bold; }
+  .total-label { font-weight: bold; font-size: 12pt; text-align: right; padding: 8px 12px; border: 2px solid #C13B56; background-color: #FFF1F3; }
+  .total-value { font-weight: bold; font-size: 14pt; color: #C13B56; text-align: right; padding: 8px 12px; border: 2px solid #C13B56; background-color: #FFF1F3; }
+</style>
+</head>
+<body>
+<table>
+  <!-- Report Header -->
+  <tr><td colspan="5" class="header-title">🍦 Doce Sabor — Relatório de Vendas</td></tr>
+  <tr><td colspan="5" class="header-sub">Período: ${periodoInicio} a ${periodoFim}</td></tr>
+  <tr><td colspan="5" class="header-sub">Gerado em: ${new Date().toLocaleString("pt-BR")}</td></tr>
+  <tr><td colspan="5"></td></tr>
+  <!-- Column Headers -->
+  <tr>
+    <th class="col-header">ID</th>
+    <th class="col-header">Data/Hora</th>
+    <th class="col-header">Tipo</th>
+    <th class="col-header">Pagamento</th>
+    <th class="col-header">Total (R$)</th>
+  </tr>`;
+
+    vendas.forEach((v, i) => {
+      const rowClass = i % 2 === 0 ? "row-even" : "row-odd";
+      html += `
+  <tr class="${rowClass}">
+    <td class="cell cell-id">#${v.id}</td>
+    <td class="cell">${formatDate(v.data_hora)}</td>
+    <td class="cell" style="text-align:center">${v.tipo}</td>
+    <td class="cell" style="text-align:center">${v.metodo_pagamento}</td>
+    <td class="cell cell-money">R$ ${Number(v.total).toFixed(2).replace(".", ",")}</td>
+  </tr>`;
+    });
+
+    html += `
+  <!-- Totals -->
+  <tr><td colspan="5"></td></tr>
+  <tr>
+    <td colspan="3"></td>
+    <td class="total-label">${vendas.length} ${vendas.length === 1 ? "venda" : "vendas"} — Total:</td>
+    <td class="total-value">R$ ${totalFiltrado.toFixed(2).replace(".", ",")}</td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: "application/vnd.ms-excel;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `relatorio_vendas_${filters.dataInicio}_a_${filters.dataFim}.csv`);
-    link.style.visibility = 'hidden';
+    link.setAttribute("download", `relatorio_vendas_${filters.dataInicio}_a_${filters.dataFim}.xls`);
+    link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -107,24 +175,6 @@ export default function VendasPage() {
             <h1 className="section-title">Vendas</h1>
             <p className="text-xs text-gray-400 mt-0.5">Histórico de vendas</p>
           </div>
-          {vendas.length > 0 && (
-            <div className="text-right flex items-center gap-4">
-              <div>
-                <p className="text-xs text-gray-500 font-medium">{vendas.length} vendas</p>
-                <p className="text-xl font-extrabold text-brand-red">
-                  R$ {totalFiltrado.toFixed(2).replace(".", ",")}
-                </p>
-              </div>
-              <button 
-                onClick={exportToCSV}
-                className="btn-ghost flex items-center gap-2 border border-gray-200 px-3 py-2"
-                title="Exportar Excel/CSV"
-              >
-                <FiDownload size={18} />
-                <span className="text-sm font-bold">Exportar</span>
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Filters */}
@@ -201,7 +251,7 @@ export default function VendasPage() {
               className="select text-sm py-2 w-32"
             >
               <option>Todos</option>
-              <option>Direta</option>
+              <option>Venda Rápida</option>
               <option>Comanda</option>
             </select>
           </div>
@@ -216,6 +266,33 @@ export default function VendasPage() {
             <FiFilter size={14} /> Limpar
           </button>
         </div>
+
+        {/* Totals + Export — positioned below filters */}
+        {vendas.length > 0 && (
+          <div className="mt-4 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-100 px-5 py-3">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 font-medium">Vendas:</span>
+                <span className="text-sm font-bold text-brand-dark">{vendas.length}</span>
+              </div>
+              <div className="w-px h-5 bg-gray-200" />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 font-medium">Total:</span>
+                <span className="text-lg font-extrabold text-brand-red">
+                  R$ {totalFiltrado.toFixed(2).replace(".", ",")}
+                </span>
+              </div>
+            </div>
+            <button 
+              onClick={exportToExcel}
+              className="btn-ghost flex items-center gap-2 border border-gray-200 px-3 py-2 hover:border-brand-red/30 hover:text-brand-red transition-colors"
+              title="Exportar Excel"
+            >
+              <FiDownload size={16} />
+              <span className="text-sm font-bold">Exportar</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Content */}
