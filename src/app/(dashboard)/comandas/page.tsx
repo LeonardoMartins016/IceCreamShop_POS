@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { FiPlus, FiFileText, FiTrash2, FiX, FiChevronRight, FiDollarSign, FiCreditCard, FiCheckCircle, FiAlertCircle } from "react-icons/fi";
+import { FiFileText, FiTrash2, FiX, FiChevronRight, FiDollarSign, FiCreditCard, FiCheckCircle, FiAlertCircle, FiPlus } from "react-icons/fi";
 import { BsQrCode } from "react-icons/bs";
 import { toast } from "react-hot-toast";
 import ProductGrid from "@/components/ProductGrid";
@@ -67,10 +67,7 @@ export default function ComandasPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [metodo, setMetodo] = useState<string>("Dinheiro");
-  const [loadingNew, setLoadingNew] = useState(false);
   const [valorRecebido, setValorRecebido] = useState<string>("");
-  const [showNovaComandaModal, setShowNovaComandaModal] = useState(false);
-  const [novaComandaNome, setNovaComandaNome] = useState("");
 
   const fetchComandas = useCallback(async () => {
     try {
@@ -100,30 +97,6 @@ export default function ComandasPage() {
     fetchProdutos();
   }, [fetchComandas, fetchProdutos]);
 
-  const handleNovaComanda = async () => {
-    setLoadingNew(true);
-    try {
-      const res = await fetch("/api/comandas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: novaComandaNome || undefined }),
-      });
-      if (!res.ok) throw new Error("Erro ao criar comanda");
-      const comanda = await res.json();
-      await fetchComandas();
-      toast.success(`Comanda #${comanda.numero} criada!`);
-      
-      // Select the new comanda and open the add products modal
-      setSelected({ ...comanda, itens: comanda.itens || [] });
-      setShowAddProducts(true);
-      setShowNovaComandaModal(false);
-      setNovaComandaNome("");
-    } catch {
-      toast.error("Erro ao criar comanda");
-    } finally {
-      setLoadingNew(false);
-    }
-  };
 
   const handleSelectComanda = (comanda: Comanda) => {
     setSelected(comanda);
@@ -228,19 +201,11 @@ export default function ComandasPage() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Header */}
-      <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+      <header className="bg-white border-b border-gray-100 px-6 py-4 shrink-0">
         <div>
           <h1 className="section-title">Comandas</h1>
           <p className="text-xs text-gray-400 mt-0.5">Mesas e pedidos em aberto</p>
         </div>
-        <button
-          id="nova-comanda-btn"
-          onClick={() => setShowNovaComandaModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <FiPlus size={18} />
-          Nova Comanda
-        </button>
       </header>
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
@@ -252,7 +217,7 @@ export default function ComandasPage() {
                 <FiFileText className="text-gray-300" size={28} />
               </div>
               <p className="text-gray-500 font-medium text-sm">Nenhuma comanda aberta</p>
-              <p className="text-gray-400 text-xs mt-1">Clique em "Nova Comanda" para começar</p>
+              <p className="text-gray-400 text-xs mt-1">Crie comandas pelo Caixa</p>
             </div>
           ) : (
             comandas.map((comanda) => {
@@ -301,7 +266,7 @@ export default function ComandasPage() {
                 <FiFileText className="text-gray-200" size={40} />
               </div>
               <p className="text-gray-500 font-medium">Selecione uma comanda</p>
-              <p className="text-gray-400 text-sm mt-1">ou crie uma nova</p>
+              <p className="text-gray-400 text-sm mt-1">para ver os detalhes</p>
             </div>
           ) : (
             <div className="p-6 flex flex-col gap-5">
@@ -712,65 +677,6 @@ export default function ComandasPage() {
                     Fechar Comanda
                   </>
                 )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* ── Nova Comanda Modal ── */}
-      {showNovaComandaModal && (
-        <div className="modal-overlay" onClick={() => setShowNovaComandaModal(false)}>
-          <div
-            className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-            style={{ animation: "modalIn 0.18s ease-out" }}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-xl font-bold text-brand-dark">Nova Comanda</h3>
-                <p className="text-sm text-gray-500">Crie uma nova mesa ou pedido</p>
-              </div>
-              <button onClick={() => setShowNovaComandaModal(false)} className="text-gray-400 hover:text-gray-600 p-1">
-                <FiX size={20} />
-              </button>
-            </div>
-            
-            <div className="mb-6">
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                Nome do Cliente <span className="text-gray-400 font-normal normal-case">(opcional)</span>
-              </label>
-              <input
-                type="text"
-                value={novaComandaNome}
-                onChange={(e) => setNovaComandaNome(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-sm font-medium text-brand-dark
-                           focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-brand-blue
-                           placeholder-gray-300 transition-all duration-200"
-                placeholder='Ex: "Mesa 3", "João"'
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !loadingNew) {
-                    handleNovaComanda();
-                  }
-                }}
-              />
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowNovaComandaModal(false)}
-                className="btn-ghost flex-1 py-3"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleNovaComanda}
-                disabled={loadingNew}
-                className="flex-1 py-3 rounded-xl font-bold text-white text-sm
-                           bg-brand-blue hover:bg-blue-600 active:scale-[0.97] transition-all duration-150
-                           shadow-lg shadow-blue-500/25 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loadingNew ? "Criando..." : "Criar Comanda"}
               </button>
             </div>
           </div>

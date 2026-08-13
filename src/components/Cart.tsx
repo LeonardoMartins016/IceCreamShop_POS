@@ -1,6 +1,6 @@
 "use client";
 
-import { FiTrash2, FiShoppingCart, FiTag, FiMinus } from "react-icons/fi";
+import { FiTrash2, FiShoppingCart, FiTag, FiMinus, FiPlus } from "react-icons/fi";
 
 export interface CartItem {
   key: string;
@@ -17,10 +17,11 @@ interface CartProps {
   itens: CartItem[];
   onRemove: (key: string) => void;
   onDecrease: (key: string) => void;
+  onIncrease: (key: string) => void;
   total: number;
 }
 
-export default function Cart({ itens, onRemove, onDecrease, total }: CartProps) {
+export default function Cart({ itens, onRemove, onDecrease, onIncrease, total }: CartProps) {
   if (itens.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -83,6 +84,18 @@ export default function Cart({ itens, onRemove, onDecrease, total }: CartProps) 
                   title="Diminuir 1 unidade"
                 >
                   <FiMinus size={12} />
+                </button>
+              )}
+              {/* Increase by 1 button — only for UN items */}
+              {item.tipo !== "KG" && (
+                <button
+                  onClick={() => onIncrease(item.key)}
+                  id={`increase-item-${item.key}`}
+                  className="w-6 h-6 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 flex items-center justify-center transition-all"
+                  aria-label="Aumentar 1 unidade"
+                  title="Aumentar 1 unidade"
+                >
+                  <FiPlus size={12} />
                 </button>
               )}
               {/* Remove all button */}

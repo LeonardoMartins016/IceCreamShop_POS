@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { FiBarChart2, FiFilter, FiX, FiChevronRight, FiDownload } from "react-icons/fi";
+import { FiBarChart2, FiFilter, FiX, FiChevronRight, FiDownload, FiCalendar, FiArrowRight } from "react-icons/fi";
 
 interface VendaItem {
   id: number;
@@ -178,93 +178,134 @@ export default function VendasPage() {
         </div>
 
         {/* Filters */}
-        <div className="mt-4 flex flex-wrap gap-3 items-end">
-          <div className="flex flex-col gap-1">
-            <label className="label text-xs">De</label>
-            <input
-              id="filtro-data-inicio"
-              type="date"
-              value={filters.dataInicio}
-              onChange={(e) => setFilters((f) => ({ ...f, dataInicio: e.target.value }))}
-              className="input text-sm py-2 w-40"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="label text-xs">Até</label>
-            <input
-              id="filtro-data-fim"
-              type="date"
-              value={filters.dataFim}
-              onChange={(e) => setFilters((f) => ({ ...f, dataFim: e.target.value }))}
-              className="input text-sm py-2 w-40"
-            />
-          </div>
-          <div className="flex flex-col gap-1 relative">
-            <label className="label text-xs">Pagamento</label>
+        <div className="mt-4 bg-gradient-to-br from-gray-50/80 to-white rounded-2xl border border-gray-100 p-4">
+          <div className="flex flex-wrap gap-4 items-end">
+            {/* Date range group */}
+            <div className="flex items-end gap-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <FiCalendar size={11} className="text-brand-red" />
+                  Data Início
+                </label>
+                <div className="relative group">
+                  <input
+                    id="filtro-data-inicio"
+                    type="date"
+                    value={filters.dataInicio}
+                    onChange={(e) => setFilters((f) => ({ ...f, dataInicio: e.target.value }))}
+                    className="w-44 px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-sm font-semibold text-brand-dark
+                               focus:outline-none focus:ring-4 focus:ring-brand-red/10 focus:border-brand-red
+                               hover:border-gray-300 transition-all duration-200 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-center w-8 h-10 text-gray-300">
+                <FiArrowRight size={16} />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <FiCalendar size={11} className="text-brand-red" />
+                  Data Fim
+                </label>
+                <div className="relative group">
+                  <input
+                    id="filtro-data-fim"
+                    type="date"
+                    value={filters.dataFim}
+                    onChange={(e) => setFilters((f) => ({ ...f, dataFim: e.target.value }))}
+                    className="w-44 px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-sm font-semibold text-brand-dark
+                               focus:outline-none focus:ring-4 focus:ring-brand-red/10 focus:border-brand-red
+                               hover:border-gray-300 transition-all duration-200 cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div className="hidden sm:block w-px h-10 bg-gray-200 mx-1" />
+
+            {/* Payment filter */}
+            <div className="flex flex-col gap-1.5 relative">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pagamento</label>
+              <button
+                 onClick={() => setShowPagamentoDropdown(!showPagamentoDropdown)}
+                 className="w-48 px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-sm font-semibold text-brand-dark
+                            text-left flex justify-between items-center
+                            hover:border-gray-300 focus:outline-none focus:ring-4 focus:ring-brand-red/10 focus:border-brand-red
+                            transition-all duration-200"
+              >
+                 <span className="truncate pr-2">
+                   {filters.metodoPagamento.includes("Todos") || filters.metodoPagamento.length === 0 
+                     ? "Todos" 
+                     : filters.metodoPagamento.join(", ")}
+                 </span>
+                 <FiChevronRight className={`shrink-0 transition-transform duration-200 text-gray-400 ${showPagamentoDropdown ? 'rotate-90' : ''}`} size={14} />
+              </button>
+              
+              {showPagamentoDropdown && (
+                 <div className="absolute top-full left-0 mt-1.5 w-56 bg-white border border-gray-100 rounded-xl shadow-xl z-20 p-2 flex flex-col gap-0.5"
+                      style={{ animation: "modalIn 0.15s ease-out" }}>
+                    {["Todos", "Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"].map(opt => (
+                      <label key={opt} className="flex items-center gap-2.5 text-sm p-2.5 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
+                        <input 
+                          type="checkbox"
+                          checked={filters.metodoPagamento.includes(opt)}
+                          onChange={() => {
+                            setFilters(f => {
+                               let newArr = [...f.metodoPagamento];
+                               if (opt === "Todos") {
+                                 newArr = ["Todos"];
+                               } else {
+                                 newArr = newArr.filter(x => x !== "Todos");
+                                 if (newArr.includes(opt)) newArr = newArr.filter(x => x !== opt);
+                                 else newArr.push(opt);
+                                 if (newArr.length === 0) newArr = ["Todos"];
+                               }
+                               return { ...f, metodoPagamento: newArr };
+                            });
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 text-brand-red focus:ring-brand-red"
+                        />
+                        <span className="font-medium text-gray-700">{opt}</span>
+                      </label>
+                    ))}
+                 </div>
+              )}
+            </div>
+
+            {/* Type filter */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tipo</label>
+              <select
+                id="filtro-tipo"
+                value={filters.tipo}
+                onChange={(e) => setFilters((f) => ({ ...f, tipo: e.target.value }))}
+                className="w-36 px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-sm font-semibold text-brand-dark
+                           hover:border-gray-300 focus:outline-none focus:ring-4 focus:ring-brand-red/10 focus:border-brand-red
+                           transition-all duration-200 cursor-pointer appearance-none"
+              >
+                <option>Todos</option>
+                <option>Venda Rápida</option>
+                <option>Comanda</option>
+              </select>
+            </div>
+
+            {/* Clear button */}
             <button
-               onClick={() => setShowPagamentoDropdown(!showPagamentoDropdown)}
-               className="input text-sm py-2 w-48 text-left bg-white border-2 border-gray-200 rounded-xl flex justify-between items-center"
+              id="limpar-filtros-btn"
+              onClick={() => {
+                setFilters({ dataInicio: today(), dataFim: today(), metodoPagamento: ["Todos"], tipo: "Todos" });
+                setShowPagamentoDropdown(false);
+              }}
+              className="px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-sm font-semibold text-gray-500
+                         hover:border-red-200 hover:text-brand-red hover:bg-red-50/50
+                         active:scale-95 transition-all duration-200 flex items-center gap-1.5"
             >
-               <span className="truncate pr-2">
-                 {filters.metodoPagamento.includes("Todos") || filters.metodoPagamento.length === 0 
-                   ? "Todos" 
-                   : filters.metodoPagamento.join(", ")}
-               </span>
-               <FiChevronRight className={`shrink-0 transition-transform ${showPagamentoDropdown ? 'rotate-90' : ''}`} />
+              <FiFilter size={13} /> Limpar
             </button>
-            
-            {showPagamentoDropdown && (
-               <div className="absolute top-full left-0 mt-1 w-56 bg-white border border-gray-100 rounded-xl shadow-xl z-20 p-2 flex flex-col gap-1">
-                  {["Todos", "Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"].map(opt => (
-                    <label key={opt} className="flex items-center gap-2 text-sm p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
-                      <input 
-                        type="checkbox"
-                        checked={filters.metodoPagamento.includes(opt)}
-                        onChange={() => {
-                          setFilters(f => {
-                             let newArr = [...f.metodoPagamento];
-                             if (opt === "Todos") {
-                               newArr = ["Todos"];
-                             } else {
-                               newArr = newArr.filter(x => x !== "Todos");
-                               if (newArr.includes(opt)) newArr = newArr.filter(x => x !== opt);
-                               else newArr.push(opt);
-                               if (newArr.length === 0) newArr = ["Todos"];
-                             }
-                             return { ...f, metodoPagamento: newArr };
-                          });
-                        }}
-                        className="w-4 h-4 rounded border-gray-300 text-brand-red focus:ring-brand-red"
-                      />
-                      <span className="font-medium text-gray-700">{opt}</span>
-                    </label>
-                  ))}
-               </div>
-            )}
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="label text-xs">Tipo</label>
-            <select
-              id="filtro-tipo"
-              value={filters.tipo}
-              onChange={(e) => setFilters((f) => ({ ...f, tipo: e.target.value }))}
-              className="select text-sm py-2 w-32"
-            >
-              <option>Todos</option>
-              <option>Venda Rápida</option>
-              <option>Comanda</option>
-            </select>
-          </div>
-          <button
-            id="limpar-filtros-btn"
-            onClick={() => {
-              setFilters({ dataInicio: today(), dataFim: today(), metodoPagamento: ["Todos"], tipo: "Todos" });
-              setShowPagamentoDropdown(false);
-            }}
-            className="btn-ghost py-2 px-3 text-sm flex items-center gap-1"
-          >
-            <FiFilter size={14} /> Limpar
-          </button>
         </div>
 
         {/* Totals + Export — positioned below filters */}

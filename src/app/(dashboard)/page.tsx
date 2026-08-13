@@ -172,6 +172,44 @@ export default function CaixaPage() {
     }
   };
 
+  const handleIncreaseItem = async (key: string) => {
+    const item = carrinho.find((i) => i.key === key);
+    if (!item) return;
+
+    const novaQuantidade = item.quantidade + 1;
+    try {
+      const res = await fetch("/api/calcular-preco", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ produto_id: item.produto_id, quantidade: novaQuantidade }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setCarrinho((prev) =>
+        prev.map((i) =>
+          i.key === key
+            ? {
+                ...i,
+                quantidade: data.quantidade,
+                valor_unitario: data.valor_unitario,
+                valor_total: data.valor_total,
+                teve_promocao: data.teve_promocao,
+              }
+            : i
+        )
+      );
+
+      if (data.teve_promocao && !item.teve_promocao) {
+        toast.success(`Promoção aplicada! R$ ${data.valor_unitario.toFixed(2).replace(".", ",")} por unidade`, {
+          icon: "🏷️",
+        });
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao recalcular preço");
+    }
+  };
+
   const handleClearCart = () => {
     setCarrinho([]);
   };
@@ -300,6 +338,7 @@ export default function CaixaPage() {
               itens={carrinho}
               onRemove={handleRemoveItem}
               onDecrease={handleDecreaseItem}
+              onIncrease={handleIncreaseItem}
               total={total}
             />
           </div>
