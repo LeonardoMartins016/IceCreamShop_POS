@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FiX, FiDollarSign, FiCreditCard, FiCheckCircle, FiAlertCircle, FiUser } from "react-icons/fi";
+import { FiX, FiDollarSign, FiCreditCard, FiCheckCircle, FiAlertCircle, FiUser, FiTrash2, FiPlus } from "react-icons/fi";
 import { BsQrCode } from "react-icons/bs";
 import { CartItem } from "./Cart";
 
@@ -11,12 +11,17 @@ interface Comanda {
   nome?: string | null;
 }
 
+export interface PagamentoItem {
+  metodo: string;
+  valor: number;
+}
+
 interface PaymentModalProps {
   total: number;
   itens: CartItem[];
   comandas: Comanda[];
   onConfirm: (data: {
-    metodo_pagamento: string;
+    pagamentos: PagamentoItem[];
     tipo: "Venda Rápida" | "Comanda";
     comanda_id?: number | "nova";
     nome_comanda?: string;
@@ -32,6 +37,55 @@ const METODOS = [
   { key: "Cartão de Débito", icon: FiCreditCard, color: "amber" },
 ] as const;
 
+const COLOR_MAP: Record<string, { active: string; ring: string; iconBg: string; iconText: string; badge: string }> = {
+  emerald: {
+    active: "border-emerald-500 bg-gradient-to-br from-emerald-50 to-emerald-100/60 shadow-emerald-100",
+    ring: "ring-emerald-500/20",
+    iconBg: "bg-emerald-500",
+    iconText: "text-emerald-700",
+    badge: "bg-emerald-100 text-emerald-700",
+  },
+  violet: {
+    active: "border-violet-500 bg-gradient-to-br from-violet-50 to-violet-100/60 shadow-violet-100",
+    ring: "ring-violet-500/20",
+    iconBg: "bg-violet-500",
+    iconText: "text-violet-700",
+    badge: "bg-violet-100 text-violet-700",
+  },
+  blue: {
+    active: "border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100/60 shadow-blue-100",
+    ring: "ring-blue-500/20",
+    iconBg: "bg-blue-500",
+    iconText: "text-blue-700",
+    badge: "bg-blue-100 text-blue-700",
+  },
+  amber: {
+    active: "border-amber-500 bg-gradient-to-br from-amber-50 to-amber-100/60 shadow-amber-100",
+    ring: "ring-amber-500/20",
+    iconBg: "bg-amber-500",
+    iconText: "text-amber-700",
+    badge: "bg-amber-100 text-amber-700",
+  },
+};
+
+function getMetodoColor(metodo: string) {
+  const found = METODOS.find((m) => m.key === metodo);
+  return found ? found.color : "emerald";
+}
+
+function getMetodoStyle(m: string, current: string) {
+  const color = getMetodoColor(m);
+  const c = COLOR_MAP[color];
+  const isActive = current === m;
+  return {
+    button: isActive
+      ? `${c.active} border-2 shadow-md ring-4 ${c.ring}`
+      : "border-2 border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm",
+    iconContainer: isActive ? `${c.iconBg} text-white` : "bg-gray-100 text-gray-500",
+    label: isActive ? `font-bold ${c.iconText}` : "font-medium text-gray-600",
+  };
+}
+
 export default function PaymentModal({
   total,
   itens,
@@ -40,29 +94,82 @@ export default function PaymentModal({
   onClose,
   loading,
 }: PaymentModalProps) {
-  const [metodo, setMetodo] = useState<string>("Dinheiro");
   const [tipoVenda, setTipoVenda] = useState<"Venda Rápida" | "Comanda" | "">("");
   const [selectedComanda, setSelectedComanda] = useState<number | "nova" | "">("");
   const [nomeComanda, setNomeComanda] = useState<string>("");
-  const [valorRecebido, setValorRecebido] = useState<string>("");
+
+  // Split payment state
+  const [pagamentos, setPagamentos] = useState<PagamentoItem[]>([]);
+  const [metodoAtual, setMetodoAtual] = useState<string>("Dinheiro");
+  const [valorAtual, setValorAtual] = useState<string>("");
+
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
-  const valorRecebidoNum = Number(valorRecebido);
-  const dinheiroValido =
-    tipoVenda !== "Venda Rápida" ||
-    metodo !== "Dinheiro" ||
-    (valorRecebidoNum > 0 && valorRecebidoNum >= total);
-  const comandaValida = tipoVenda !== "Comanda" || !!selectedComanda;
-  const tipoSelecionado = tipoVenda !== "";
-  const canConfirm = tipoSelecionado && dinheiroValido && comandaValida && !loading;
+  const totalPago = pagamentos.reduce((s, p) => s + p.valor, 0);
+  const restante = Math.max(0, Number((total - totalPago).toFixed(2)));
+  const pago = Math.round(totalPago * 100) >= Math.round(total * 100);
 
-  const troco =
-    tipoVenda === "Venda Rápida" &&
-    metodo === "Dinheiro" &&
-    valorRecebidoNum > 0 &&
-    valorRecebidoNum >= total
-      ? valorRecebidoNum - total
-      : 0;
+  const valorAtualNum = Number(valorAtual) || 0;
+
+  // Troco somente se houver pagamento em Dinheiro e o total pago for maior que o total
+  const temDinheiro = pagamentos.some((p) => p.metodo === "Dinheiro");
+  const troco = pago && temDinheiro && Math.round(totalPago * 100) > Math.round(total * 100)
+    ? Number((totalPago - total).toFixed(2))
+    : 0;
+
+  const tipoSelecionado = tipoVenda !== "";
+  const comandaValida = tipoVenda !== "Comanda" || !!selectedComanda;
+  const canConfirm = tipoSelecionado && comandaValida && (tipoVenda === "Comanda" || pago) && !loading;
+
+  const handleSelecionarMetodo = (key: string) => {
+    setMetodoAtual(key);
+    // Se mudar para cartão ou PIX e o valor digitado for maior que o restante, limita ao restante
+    if (key !== "Dinheiro" && valorAtualNum > restante) {
+      setValorAtual(restante > 0 ? restante.toFixed(2) : "");
+    }
+  };
+
+  const handleValorChange = (val: string) => {
+    if (val === "") {
+      setValorAtual("");
+      return;
+    }
+    const num = Number(val);
+    // Não permite digitar valor maior que o necessário em cartão de crédito, débito ou PIX
+    if (metodoAtual !== "Dinheiro" && num > restante) {
+      setValorAtual(restante.toFixed(2));
+      return;
+    }
+    setValorAtual(val);
+  };
+
+  const handleAdicionarPagamento = () => {
+    if (valorAtualNum <= 0) return;
+    if (metodoAtual !== "Dinheiro" && valorAtualNum > restante) return;
+
+    const valorAdicionar = Number(valorAtualNum.toFixed(2));
+
+    // Se já houver um pagamento com o mesmo método (ex: Dinheiro), junta os valores
+    setPagamentos((prev) => {
+      const idx = prev.findIndex((p) => p.metodo === metodoAtual);
+      if (idx >= 0) {
+        const atualizados = [...prev];
+        atualizados[idx] = {
+          ...atualizados[idx],
+          valor: Number((atualizados[idx].valor + valorAdicionar).toFixed(2)),
+        };
+        return atualizados;
+      }
+      return [...prev, { metodo: metodoAtual, valor: valorAdicionar }];
+    });
+
+    setValorAtual("");
+  };
+
+  const handleRemoverPagamento = (idx: number) => {
+    setPagamentos((prev) => prev.filter((_, i) => i !== idx));
+  };
+
 
   const handleConfirmClick = () => {
     if (!canConfirm) return;
@@ -70,53 +177,19 @@ export default function PaymentModal({
   };
 
   const handleFinalConfirm = () => {
-    onConfirm({
-      metodo_pagamento: tipoVenda === "Comanda" ? "Comanda" : metodo,
-      tipo: tipoVenda as "Venda Rápida" | "Comanda",
-      comanda_id:
-        tipoVenda === "Comanda"
-          ? (selectedComanda as number | "nova")
-          : undefined,
-      nome_comanda: tipoVenda === "Comanda" && selectedComanda === "nova" ? nomeComanda : undefined,
-    });
-  };
-
-  const getMetodoStyle = (m: string, color: string) => {
-    const isActive = metodo === m;
-    const colorMap: Record<string, { active: string; ring: string; iconBg: string; iconText: string }> = {
-      emerald: {
-        active: "border-emerald-500 bg-gradient-to-br from-emerald-50 to-emerald-100/60 shadow-emerald-100",
-        ring: "ring-emerald-500/20",
-        iconBg: "bg-emerald-500",
-        iconText: "text-emerald-700",
-      },
-      violet: {
-        active: "border-violet-500 bg-gradient-to-br from-violet-50 to-violet-100/60 shadow-violet-100",
-        ring: "ring-violet-500/20",
-        iconBg: "bg-violet-500",
-        iconText: "text-violet-700",
-      },
-      blue: {
-        active: "border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100/60 shadow-blue-100",
-        ring: "ring-blue-500/20",
-        iconBg: "bg-blue-500",
-        iconText: "text-blue-700",
-      },
-      amber: {
-        active: "border-amber-500 bg-gradient-to-br from-amber-50 to-amber-100/60 shadow-amber-100",
-        ring: "ring-amber-500/20",
-        iconBg: "bg-amber-500",
-        iconText: "text-amber-700",
-      },
-    };
-    const c = colorMap[color];
-    return {
-      button: isActive
-        ? `${c.active} border-2 shadow-md ring-4 ${c.ring}`
-        : "border-2 border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm",
-      iconContainer: isActive ? `${c.iconBg} text-white` : "bg-gray-100 text-gray-500",
-      label: isActive ? `font-bold ${c.iconText}` : "font-medium text-gray-600",
-    };
+    if (tipoVenda === "Comanda") {
+      onConfirm({
+        pagamentos: [],
+        tipo: "Comanda",
+        comanda_id: selectedComanda as number | "nova",
+        nome_comanda: selectedComanda === "nova" ? nomeComanda : undefined,
+      });
+    } else {
+      onConfirm({
+        pagamentos,
+        tipo: "Venda Rápida",
+      });
+    }
   };
 
   // ─── Confirmation Dialog ───────────────────────────────────────────────
@@ -150,10 +223,16 @@ export default function PaymentModal({
                 <span className="text-gray-500">Tipo</span>
                 <span className="font-semibold text-brand-dark">{tipoVenda}</span>
               </div>
-              {tipoVenda === "Venda Rápida" && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Pagamento</span>
-                  <span className="font-semibold text-brand-dark">{metodo}</span>
+              {tipoVenda === "Venda Rápida" && pagamentos.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  {pagamentos.map((p, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className="text-gray-500">{p.metodo}</span>
+                      <span className="font-semibold text-brand-dark">
+                        R$ {p.valor.toFixed(2).replace(".", ",")}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               )}
               {tipoVenda === "Comanda" && selectedComanda === "nova" && nomeComanda && (
@@ -295,7 +374,8 @@ export default function PaymentModal({
                     setTipoVenda(t);
                     setSelectedComanda("");
                     setNomeComanda("");
-                    setValorRecebido("");
+                    setPagamentos([]);
+                    setValorAtual("");
                   }}
                   className={`
                     py-4 rounded-2xl font-bold text-sm transition-all duration-200 border-2 flex flex-col items-center gap-1.5
@@ -356,7 +436,7 @@ export default function PaymentModal({
                 </button>
               )}
 
-              {/* Nome da comanda (nova ou selecionada existente) */}
+              {/* Nome da comanda */}
               {selectedComanda === "nova" && (
                 <div className="bg-gradient-to-br from-blue-50 to-blue-50/40 border-2 border-blue-200 rounded-2xl p-4 animate-slide-in">
                   <label className="block text-xs font-bold text-brand-blue uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -386,119 +466,207 @@ export default function PaymentModal({
             </div>
           )}
 
-          {/* ── STEP 2B: Se DIRETA → meios de pagamento ── */}
+          {/* ── STEP 2B: Se VENDA RÁPIDA → split payment ── */}
           {tipoVenda === "Venda Rápida" && (
-            <div className="animate-slide-in">
-              <div className="mb-6">
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-                  Forma de Pagamento
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {METODOS.map(({ key, icon: Icon, color }) => {
-                    const style = getMetodoStyle(key, color);
+            <div className="animate-slide-in space-y-5">
+
+              {/* Pagamentos já adicionados */}
+              {pagamentos.length > 0 && (
+                <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                    Pagamentos registrados
+                  </p>
+                  {pagamentos.map((p, i) => {
+                    const color = getMetodoColor(p.metodo);
+                    const c = COLOR_MAP[color];
                     return (
-                      <button
-                        key={key}
-                        id={`payment-${key.toLowerCase().replace(/ /g, "-")}`}
-                        onClick={() => {
-                          setMetodo(key);
-                          if (key !== "Dinheiro") setValorRecebido("");
-                        }}
-                        className={`
-                          relative flex items-center gap-3 p-3.5 rounded-2xl transition-all duration-200
-                          ${style.button}
-                        `}
-                      >
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${style.iconContainer}`}>
-                          <Icon size={18} />
-                        </div>
-                        <span className={`text-sm text-left leading-tight ${style.label}`}>
-                          {key}
+                      <div key={i} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 shadow-sm border border-gray-100">
+                        <span className={`text-xs font-bold px-2 py-1 rounded-lg ${c.badge}`}>
+                          {p.metodo}
                         </span>
-                        {metodo === key && (
-                          <div className="absolute top-2 right-2">
-                            <FiCheckCircle size={14} className="text-current opacity-60" />
-                          </div>
-                        )}
-                      </button>
+                        <span className="flex-1 text-sm font-bold text-brand-dark">
+                          R$ {p.valor.toFixed(2).replace(".", ",")}
+                        </span>
+                        <button
+                          onClick={() => handleRemoverPagamento(i)}
+                          className="text-gray-300 hover:text-red-400 transition-colors p-1"
+                          aria-label="Remover pagamento"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </div>
                     );
                   })}
-                </div>
-              </div>
 
-              {/* Cash input */}
-              {metodo === "Dinheiro" && (
-                <div className="mb-6 animate-slide-in">
-                  <div className="bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200 rounded-2xl p-5">
-                    <label className="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  {/* Restante / Troco */}
+                  <div className="border-t border-gray-200 pt-2 mt-2">
+                    {!pago ? (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 font-medium">Falta pagar</span>
+                        <span className="font-bold text-brand-red">
+                          R$ {restante.toFixed(2).replace(".", ",")}
+                        </span>
+                      </div>
+                    ) : troco > 0 ? (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 font-medium">Troco</span>
+                        <span className="font-bold text-emerald-600">
+                          R$ {troco.toFixed(2).replace(".", ",")}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-emerald-600">
+                        <FiCheckCircle size={16} />
+                        <span className="text-sm font-bold">Pagamento completo</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Adicionar novo pagamento (só se ainda há valor a pagar) */}
+              {!pago && (
+                <div className="space-y-4">
+                  {/* Forma de pagamento */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                      {pagamentos.length === 0 ? "Forma de Pagamento" : "Adicionar outro meio"}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {METODOS.map(({ key, icon: Icon, color }) => {
+                        const style = getMetodoStyle(key, metodoAtual);
+                        return (
+                          <button
+                            key={key}
+                            id={`payment-${key.toLowerCase().replace(/ /g, "-")}`}
+                            onClick={() => handleSelecionarMetodo(key)}
+                            className={`
+                              relative flex items-center gap-3 p-3.5 rounded-2xl transition-all duration-200
+                              ${style.button}
+                            `}
+                          >
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${style.iconContainer}`}>
+                              <Icon size={18} />
+                            </div>
+                            <span className={`text-sm text-left leading-tight ${style.label}`}>
+                              {key}
+                            </span>
+                            {metodoAtual === key && (
+                              <div className="absolute top-2 right-2">
+                                <FiCheckCircle size={14} className="text-current opacity-60" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Valor input */}
+                  <div className={`rounded-2xl p-5 border-2 ${metodoAtual === "Dinheiro" ? "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200" : "bg-gray-50 border-gray-200"}`}>
+                    <label className={`block text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2 ${metodoAtual === "Dinheiro" ? "text-emerald-700" : "text-gray-500"}`}>
                       <FiDollarSign size={14} />
-                      Valor Recebido do Cliente
-                      <span className="text-red-500 text-sm">*</span>
+                      Valor {pagamentos.length > 0 ? "neste meio" : "recebido"}
                     </label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600 font-bold text-sm">R$</span>
+                      <span className={`absolute left-4 top-1/2 -translate-y-1/2 font-bold text-sm ${metodoAtual === "Dinheiro" ? "text-emerald-600" : "text-gray-400"}`}>R$</span>
                       <input
                         type="number"
                         step="0.01"
                         min={0}
-                        value={valorRecebido}
-                        onChange={(e) => setValorRecebido(e.target.value)}
-                        className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-emerald-200 bg-white text-lg font-bold text-brand-dark
-                                   focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500
-                                   placeholder-gray-300 transition-all duration-200"
+                        max={metodoAtual !== "Dinheiro" ? restante : undefined}
+                        value={valorAtual}
+                        onChange={(e) => handleValorChange(e.target.value)}
+                        className={`w-full pl-12 pr-4 py-4 rounded-xl border-2 bg-white text-lg font-bold text-brand-dark
+                                   focus:outline-none transition-all duration-200 placeholder-gray-300
+                                   ${metodoAtual === "Dinheiro"
+                                     ? "border-emerald-200 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                     : "border-gray-200 focus:ring-4 focus:ring-brand-red/10 focus:border-brand-red"
+                                   }`}
                         placeholder="0,00"
                         id="payment-valor-recebido"
                         autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && valorAtualNum > 0 && !(metodoAtual !== "Dinheiro" && valorAtualNum > restante)) {
+                            handleAdicionarPagamento();
+                          }
+                        }}
                       />
                     </div>
 
-                    {valorRecebido !== "" && valorRecebidoNum < total && (
-                      <div className="mt-3 flex items-center gap-2 text-sm text-red-500 font-medium animate-slide-in">
-                        <FiAlertCircle size={14} />
-                        Valor insuficiente. Faltam R$ {(total - valorRecebidoNum).toFixed(2).replace(".", ",")}
-                      </div>
+                    {/* Feedback contextual */}
+                    {metodoAtual !== "Dinheiro" && restante > 0 && (
+                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200/60 rounded-xl px-3 py-2 mt-2.5 flex items-center justify-between font-medium">
+                        <span>Para {metodoAtual}, o valor máximo é o restante:</span>
+                        <span className="font-bold">R$ {restante.toFixed(2).replace(".", ",")}</span>
+                      </p>
                     )}
-
-                    {troco > 0 && (
-                      <div className="mt-4 bg-white rounded-xl p-4 flex items-center justify-between border border-emerald-200 animate-slide-in">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                            <FiDollarSign className="text-emerald-600" size={16} />
-                          </div>
-                          <span className="text-sm font-semibold text-gray-600">Troco</span>
-                        </div>
-                        <span className="text-xl font-extrabold text-emerald-600">
-                          R$ {troco.toFixed(2).replace(".", ",")}
+                    {metodoAtual === "Dinheiro" && valorAtualNum > restante && restante > 0 && (
+                      <p className="text-xs text-emerald-800 bg-emerald-100/70 border border-emerald-300 rounded-xl px-3 py-2 mt-2.5 flex items-center justify-between font-semibold">
+                        <span>💵 Troco estimado:</span>
+                        <span className="font-bold text-emerald-700 text-sm">
+                          R$ {(valorAtualNum - restante).toFixed(2).replace(".", ",")}
                         </span>
-                      </div>
+                      </p>
                     )}
 
                     {/* Quick value buttons */}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {[5, 10, 20, 50, 100].filter((v) => v >= total).slice(0, 4).map((valor) => (
-                        <button
-                          key={valor}
-                          onClick={() => setValorRecebido(String(valor))}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150
-                            ${valorRecebidoNum === valor
-                              ? "bg-emerald-500 text-white shadow-sm"
-                              : "bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                            }`}
-                        >
-                          R$ {valor},00
-                        </button>
-                      ))}
                       <button
-                        onClick={() => setValorRecebido(total.toFixed(2))}
+                        onClick={() => setValorAtual(restante.toFixed(2))}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150
-                          ${valorRecebidoNum === total
-                            ? "bg-emerald-500 text-white shadow-sm"
-                            : "bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          ${valorAtualNum === restante
+                            ? "bg-brand-red text-white shadow-sm"
+                            : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
                           }`}
                       >
-                        Exato
+                        Pagar restante (R$ {restante.toFixed(2).replace(".", ",")})
                       </button>
+                      {metodoAtual === "Dinheiro" &&
+                        [5, 10, 20, 50, 100].filter((v) => v >= restante).slice(0, 3).map((valor) => (
+                          <button
+                            key={valor}
+                            onClick={() => setValorAtual(String(valor))}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150
+                              ${valorAtualNum === valor
+                                ? "bg-emerald-500 text-white shadow-sm"
+                                : "bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              }`}
+                          >
+                            R$ {valor},00
+                          </button>
+                        ))}
                     </div>
+
+                    {/* Add button */}
+                    {(() => {
+                      const isExcedenteInvalido = metodoAtual !== "Dinheiro" && valorAtualNum > restante;
+                      const jaTemMetodo = pagamentos.some((p) => p.metodo === metodoAtual);
+                      const podeAdicionar = valorAtualNum > 0 && !isExcedenteInvalido;
+
+                      return (
+                        <button
+                          onClick={handleAdicionarPagamento}
+                          disabled={!podeAdicionar}
+                          className={`mt-4 w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all
+                            ${podeAdicionar
+                              ? "bg-brand-dark text-white hover:bg-brand-dark/90 active:scale-[0.98]"
+                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                            }`}
+                          id="payment-adicionar-btn"
+                        >
+                          <FiPlus size={16} />
+                          {isExcedenteInvalido
+                            ? `Máximo permitido: R$ ${restante.toFixed(2).replace(".", ",")}`
+                            : jaTemMetodo
+                              ? `Somar +R$ ${valorAtualNum > 0 ? valorAtualNum.toFixed(2).replace(".", ",") : "0,00"} em ${metodoAtual}`
+                              : pagamentos.length === 0
+                                ? `Registrar R$ ${valorAtualNum > 0 ? valorAtualNum.toFixed(2).replace(".", ",") : "0,00"} em ${metodoAtual}`
+                                : `Adicionar R$ ${valorAtualNum > 0 ? valorAtualNum.toFixed(2).replace(".", ",") : "0,00"} em ${metodoAtual}`
+                          }
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -525,10 +693,10 @@ export default function PaymentModal({
           >
             {!tipoSelecionado ? (
               "Selecione o tipo"
-            ) : tipoVenda === "Venda Rápida" && metodo === "Dinheiro" && !dinheiroValido ? (
+            ) : tipoVenda === "Venda Rápida" && !pago ? (
               <>
                 <FiDollarSign size={16} />
-                Informe o valor
+                {pagamentos.length === 0 ? "Informe o pagamento" : `Falta R$ ${restante.toFixed(2).replace(".", ",")}`}
               </>
             ) : tipoVenda === "Comanda" && !comandaValida ? (
               "Selecione a comanda"

@@ -36,7 +36,24 @@ export default function CaixaPage() {
   const fetchProdutos = useCallback(async () => {
     try {
       const res = await fetch("/api/produtos");
-      if (res.ok) setProdutos(await res.json());
+      if (res.ok) {
+        const data: Produto[] = await res.json();
+        setProdutos(data);
+        // Reconciliar IDs do carrinho com produtos do banco atual
+        setCarrinho((prev) => {
+          if (prev.length === 0) return prev;
+          const mapByName = new Map(data.map((p) => [p.descricao.toLowerCase().trim(), p]));
+          const mapById = new Map(data.map((p) => [p.id, p]));
+          return prev.map((item) => {
+            if (mapById.has(item.produto_id)) return item;
+            const matched = mapByName.get(item.produto_descricao.toLowerCase().trim());
+            if (matched) {
+              return { ...item, produto_id: matched.id };
+            }
+            return item;
+          });
+        });
+      }
     } catch { /* silent */ }
   }, []);
 
@@ -215,7 +232,7 @@ export default function CaixaPage() {
   };
 
   const handleFinalizarVenda = async (data: {
-    metodo_pagamento: string;
+    pagamentos: { metodo: string; valor: number }[];
     tipo: "Venda Rápida" | "Comanda";
     comanda_id?: number | "nova";
     nome_comanda?: string;
@@ -258,7 +275,7 @@ export default function CaixaPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             itens: carrinho,
-            metodo_pagamento: data.metodo_pagamento,
+            pagamentos: data.pagamentos,
             tipo: "Venda Rápida",
           }),
         });
@@ -266,7 +283,10 @@ export default function CaixaPage() {
           const err = await res.json();
           throw new Error(err.error);
         }
-        toast.success(`Venda finalizada! R$ ${total.toFixed(2).replace(".", ",")} via ${data.metodo_pagamento}`, {
+        const metodoResumo = data.pagamentos.length === 1
+          ? data.pagamentos[0].metodo
+          : data.pagamentos.map(p => p.metodo).join(" + ");
+        toast.success(`Venda finalizada! R$ ${total.toFixed(2).replace(".", ",")} via ${metodoResumo}`, {
           icon: "✅",
         });
       }

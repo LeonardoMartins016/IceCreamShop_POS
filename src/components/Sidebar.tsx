@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { FiShoppingCart, FiFileText, FiBarChart2, FiSettings, FiMenu, FiX, FiSun } from "react-icons/fi";
+import { FiShoppingCart, FiFileText, FiBarChart2, FiSettings, FiMenu, FiX, FiSun, FiLock } from "react-icons/fi";
 import { GiIceCreamCone } from "react-icons/gi";
 
 const navItems = [
@@ -74,6 +74,9 @@ export default function Sidebar() {
               >
                 <Icon size={18} className="shrink-0" />
                 <span>{label}</span>
+                {href === "/vendas" && (
+                  <FiLock size={11} className="ml-auto text-gray-400 shrink-0" />
+                )}
               </Link>
             );
           })}

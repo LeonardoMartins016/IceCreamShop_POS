@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { FiBarChart2, FiFilter, FiX, FiChevronRight, FiDownload, FiCalendar, FiArrowRight } from "react-icons/fi";
+import { FiBarChart2, FiFilter, FiX, FiChevronRight, FiDownload, FiCalendar, FiArrowRight, FiLock, FiLogOut } from "react-icons/fi";
 
 interface VendaItem {
   id: number;
@@ -12,6 +12,12 @@ interface VendaItem {
   teve_promocao: boolean;
 }
 
+interface VendaPagamento {
+  id: number;
+  metodo_pagamento: string;
+  valor: string | number;
+}
+
 interface Venda {
   id: number;
   data_hora: string;
@@ -20,6 +26,7 @@ interface Venda {
   tipo: string;
   numero_comanda: number | null;
   itens: VendaItem[];
+  pagamentos: VendaPagamento[];
 }
 
 const formatDate = (dateString: string) => {
@@ -35,7 +42,116 @@ const formatDate = (dateString: string) => {
 
 const today = () => new Date().toISOString().split("T")[0];
 
+// ─── Login Screen ─────────────────────────────────────────────────────────────
+function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
+  const [senha, setSenha] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!senha) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ senha }),
+      });
+      if (res.ok) {
+        onSuccess();
+      } else {
+        setError("Senha incorreta. Tente novamente.");
+        setSenha("");
+      }
+    } catch {
+      setError("Erro ao verificar senha.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-screen overflow-hidden">
+      <header className="bg-white border-b border-gray-100 px-6 py-4 shrink-0">
+        <h1 className="section-title">Vendas</h1>
+        <p className="text-xs text-gray-400 mt-0.5">Relatório de vendas</p>
+      </header>
+
+      <div className="flex-1 flex items-center justify-center bg-brand-bg p-6">
+        <div className="bg-white rounded-3xl shadow-xl w-full max-w-sm p-8" style={{ animation: "modalIn 0.2s ease-out" }}>
+          {/* Lock icon */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-red/10 to-rose-100 flex items-center justify-center mb-4">
+              <FiLock className="text-brand-red" size={28} />
+            </div>
+            <h2 className="text-xl font-bold text-brand-dark">Área Restrita</h2>
+            <p className="text-sm text-gray-400 mt-1 text-center">
+              Informe a senha de administrador para acessar o relatório de vendas
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                Senha
+              </label>
+              <input
+                id="vendas-senha-input"
+                type="password"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                className="w-full px-4 py-3.5 rounded-xl border-2 border-gray-200 bg-white text-sm font-medium text-brand-dark
+                           focus:outline-none focus:ring-4 focus:ring-brand-red/10 focus:border-brand-red
+                           transition-all duration-200 placeholder-gray-300"
+                placeholder="••••••••"
+                autoFocus
+              />
+              {error && (
+                <p className="mt-2 text-xs text-red-500 font-medium flex items-center gap-1.5">
+                  <span>⚠️</span> {error}
+                </p>
+              )}
+            </div>
+
+            <button
+              id="vendas-login-btn"
+              type="submit"
+              disabled={loading || !senha}
+              className="w-full py-3.5 rounded-xl font-bold text-white text-sm
+                         bg-gradient-to-r from-brand-red to-rose-600
+                         hover:from-brand-red hover:to-rose-700
+                         active:scale-[0.97] transition-all duration-150
+                         shadow-lg shadow-brand-red/25
+                         disabled:opacity-50 disabled:cursor-not-allowed
+                         flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                  </svg>
+                  Verificando...
+                </>
+              ) : (
+                <>
+                  <FiLock size={16} />
+                  Entrar
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Vendas Page ──────────────────────────────────────────────────────────
 export default function VendasPage() {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Venda | null>(null);
@@ -45,6 +161,14 @@ export default function VendasPage() {
     metodoPagamento: ["Todos"],
     tipo: "Todos",
   });
+
+  // Check session on mount
+  useEffect(() => {
+    fetch("/api/admin/check")
+      .then((r) => r.json())
+      .then((d) => setAuthenticated(d.authenticated))
+      .catch(() => setAuthenticated(false));
+  }, []);
 
   const fetchVendas = useCallback(async () => {
     setLoading(true);
@@ -67,12 +191,18 @@ export default function VendasPage() {
   }, [filters]);
 
   useEffect(() => {
-    fetchVendas();
-  }, [fetchVendas]);
+    if (authenticated) fetchVendas();
+  }, [fetchVendas, authenticated]);
 
   const totalFiltrado = vendas.reduce((sum, v) => sum + Number(v.total), 0);
 
   const [showPagamentoDropdown, setShowPagamentoDropdown] = useState(false);
+
+  const handleLogout = async () => {
+    await fetch("/api/admin/logout", { method: "POST" }).catch(() => {});
+    setAuthenticated(false);
+    setVendas([]);
+  };
 
   const exportToExcel = () => {
     if (vendas.length === 0) return;
@@ -166,6 +296,25 @@ export default function VendasPage() {
     document.body.removeChild(link);
   };
 
+  // Loading session check
+  if (authenticated === null) {
+    return (
+      <div className="flex flex-col h-screen overflow-hidden">
+        <header className="bg-white border-b border-gray-100 px-6 py-4 shrink-0">
+          <h1 className="section-title">Vendas</h1>
+        </header>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-brand-red border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  // Not authenticated — show login
+  if (!authenticated) {
+    return <LoginScreen onSuccess={() => setAuthenticated(true)} />;
+  }
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Header */}
@@ -175,6 +324,15 @@ export default function VendasPage() {
             <h1 className="section-title">Vendas</h1>
             <p className="text-xs text-gray-400 mt-0.5">Histórico de vendas</p>
           </div>
+          <button
+            id="vendas-logout-btn"
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-brand-red transition-colors px-3 py-2 rounded-lg hover:bg-red-50"
+            title="Sair da área restrita"
+          >
+            <FiLogOut size={14} />
+            <span className="font-medium">Sair</span>
+          </button>
         </div>
 
         {/* Filters */}
@@ -237,19 +395,19 @@ export default function VendasPage() {
                             transition-all duration-200"
               >
                  <span className="truncate pr-2">
-                   {filters.metodoPagamento.includes("Todos") || filters.metodoPagamento.length === 0 
-                     ? "Todos" 
+                   {filters.metodoPagamento.includes("Todos") || filters.metodoPagamento.length === 0
+                     ? "Todos"
                      : filters.metodoPagamento.join(", ")}
                  </span>
                  <FiChevronRight className={`shrink-0 transition-transform duration-200 text-gray-400 ${showPagamentoDropdown ? 'rotate-90' : ''}`} size={14} />
               </button>
-              
+
               {showPagamentoDropdown && (
                  <div className="absolute top-full left-0 mt-1.5 w-56 bg-white border border-gray-100 rounded-xl shadow-xl z-20 p-2 flex flex-col gap-0.5"
                       style={{ animation: "modalIn 0.15s ease-out" }}>
                     {["Todos", "Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"].map(opt => (
                       <label key={opt} className="flex items-center gap-2.5 text-sm p-2.5 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors">
-                        <input 
+                        <input
                           type="checkbox"
                           checked={filters.metodoPagamento.includes(opt)}
                           onChange={() => {
@@ -308,7 +466,7 @@ export default function VendasPage() {
           </div>
         </div>
 
-        {/* Totals + Export — positioned below filters */}
+        {/* Totals + Export */}
         {vendas.length > 0 && (
           <div className="mt-4 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-100 px-5 py-3">
             <div className="flex items-center gap-6">
@@ -324,7 +482,7 @@ export default function VendasPage() {
                 </span>
               </div>
             </div>
-            <button 
+            <button
               onClick={exportToExcel}
               className="btn-ghost flex items-center gap-2 border border-gray-200 px-3 py-2 hover:border-brand-red/30 hover:text-brand-red transition-colors"
               title="Exportar Excel"
@@ -373,10 +531,18 @@ export default function VendasPage() {
                         <span className="badge-blue">Comanda #{venda.numero_comanda}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`badge-${venda.metodo_pagamento === "PIX" ? "blue" : "orange"}`}>
-                        {venda.metodo_pagamento}
-                      </span>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {venda.pagamentos && venda.pagamentos.length > 0 ? (
+                        venda.pagamentos.map((p) => (
+                          <span key={p.id} className={`badge-${p.metodo_pagamento === "PIX" ? "blue" : "orange"}`}>
+                            {p.metodo_pagamento} R$ {Number(p.valor).toFixed(2).replace(".", ",")}
+                          </span>
+                        ))
+                      ) : (
+                        <span className={`badge-${venda.metodo_pagamento === "PIX" ? "blue" : "orange"}`}>
+                          {venda.metodo_pagamento}
+                        </span>
+                      )}
                       <span className="text-xs text-gray-400">
                         {venda.itens.length} {venda.itens.length === 1 ? "item" : "itens"}
                       </span>
@@ -416,20 +582,35 @@ export default function VendasPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-500">Pagamento</p>
-                    <p className="font-semibold text-sm">{selected.metodo_pagamento}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-xl p-3">
                     <p className="text-xs text-gray-500">Tipo</p>
                     <p className="font-semibold text-sm">{selected.tipo}</p>
                   </div>
+                  {selected.numero_comanda && (
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-xs text-gray-500">Comanda</p>
+                      <p className="font-semibold text-sm">#{selected.numero_comanda}</p>
+                    </div>
+                  )}
                 </div>
-                {selected.numero_comanda && (
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-500">Comanda</p>
-                    <p className="font-semibold text-sm">#{selected.numero_comanda}</p>
-                  </div>
-                )}
+
+                {/* Pagamentos detalhados */}
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <p className="text-xs text-gray-500 mb-2">Pagamento</p>
+                  {selected.pagamentos && selected.pagamentos.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {selected.pagamentos.map((p) => (
+                        <div key={p.id} className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-brand-dark">{p.metodo_pagamento}</span>
+                          <span className="text-sm font-bold text-brand-dark">
+                            R$ {Number(p.valor).toFixed(2).replace(".", ",")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="font-semibold text-sm">{selected.metodo_pagamento}</p>
+                  )}
+                </div>
               </div>
 
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Itens</p>

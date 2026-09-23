@@ -66,11 +66,12 @@ model Venda {
   id                Int      @id @default(autoincrement())
   data_hora         DateTime @default(now())
   total             Decimal  @db.Decimal(10, 2)
-  metodo_pagamento  String   // 'Dinheiro' ou 'PIX'
+  metodo_pagamento  String   // Resumo textual (ex: R$25,00 Dinheiro + R$25,00 Cartão)
   tipo              String   @default("Venda Rápida") // 'Venda Rápida' ou 'Comanda'
   numero_comanda    Int?
 
-  itens VendaItem[]
+  itens      VendaItem[]
+  pagamentos VendaPagamento[]
 
   @@map("vendas")
 }
@@ -89,4 +90,15 @@ model VendaItem {
   produto Produto @relation(fields: [produto_id], references: [id])
 
   @@map("venda_itens")
+}
+
+model VendaPagamento {
+  id                Int     @id @default(autoincrement())
+  venda_id          Int
+  metodo_pagamento  String  // 'Dinheiro', 'PIX', 'Cartão de Crédito', 'Cartão de Débito'
+  valor             Decimal @db.Decimal(10, 2)
+
+  venda Venda @relation(fields: [venda_id], references: [id], onDelete: Cascade)
+
+  @@map("venda_pagamentos")
 }

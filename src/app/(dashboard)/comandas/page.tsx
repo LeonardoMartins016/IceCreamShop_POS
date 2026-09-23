@@ -33,6 +33,11 @@ interface Comanda {
   itens: ComandaItem[];
 }
 
+interface PagamentoItem {
+  metodo: string;
+  valor: number;
+}
+
 const METODOS_PAGAMENTO = [
   { key: "Dinheiro", icon: FiDollarSign, color: "emerald" },
   { key: "PIX", icon: BsQrCode, color: "violet" },
@@ -40,15 +45,22 @@ const METODOS_PAGAMENTO = [
   { key: "Cartão de Débito", icon: FiCreditCard, color: "amber" },
 ] as const;
 
-function getMetodoStyle(m: string, selectedMetodo: string, color: string) {
+const COLOR_MAP: Record<string, { active: string; ring: string; iconBg: string; iconText: string; badge: string }> = {
+  emerald: { active: "border-emerald-500 bg-gradient-to-br from-emerald-50 to-emerald-100/60 shadow-emerald-100", ring: "ring-emerald-500/20", iconBg: "bg-emerald-500", iconText: "text-emerald-700", badge: "bg-emerald-100 text-emerald-700" },
+  violet: { active: "border-violet-500 bg-gradient-to-br from-violet-50 to-violet-100/60 shadow-violet-100", ring: "ring-violet-500/20", iconBg: "bg-violet-500", iconText: "text-violet-700", badge: "bg-violet-100 text-violet-700" },
+  blue: { active: "border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100/60 shadow-blue-100", ring: "ring-blue-500/20", iconBg: "bg-blue-500", iconText: "text-blue-700", badge: "bg-blue-100 text-blue-700" },
+  amber: { active: "border-amber-500 bg-gradient-to-br from-amber-50 to-amber-100/60 shadow-amber-100", ring: "ring-amber-500/20", iconBg: "bg-amber-500", iconText: "text-amber-700", badge: "bg-amber-100 text-amber-700" },
+};
+
+function getMetodoColor(metodo: string) {
+  const found = METODOS_PAGAMENTO.find((m) => m.key === metodo);
+  return found ? found.color : "emerald";
+}
+
+function getMetodoStyle(m: string, selectedMetodo: string) {
+  const color = getMetodoColor(m);
+  const c = COLOR_MAP[color];
   const isActive = selectedMetodo === m;
-  const colorMap: Record<string, { active: string; ring: string; iconBg: string; iconText: string }> = {
-    emerald: { active: "border-emerald-500 bg-gradient-to-br from-emerald-50 to-emerald-100/60 shadow-emerald-100", ring: "ring-emerald-500/20", iconBg: "bg-emerald-500", iconText: "text-emerald-700" },
-    violet: { active: "border-violet-500 bg-gradient-to-br from-violet-50 to-violet-100/60 shadow-violet-100", ring: "ring-violet-500/20", iconBg: "bg-violet-500", iconText: "text-violet-700" },
-    blue: { active: "border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100/60 shadow-blue-100", ring: "ring-blue-500/20", iconBg: "bg-blue-500", iconText: "text-blue-700" },
-    amber: { active: "border-amber-500 bg-gradient-to-br from-amber-50 to-amber-100/60 shadow-amber-100", ring: "ring-amber-500/20", iconBg: "bg-amber-500", iconText: "text-amber-700" },
-  };
-  const c = colorMap[color];
   return {
     button: isActive ? `${c.active} border-2 shadow-md ring-4 ${c.ring}` : "border-2 border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm",
     iconContainer: isActive ? `${c.iconBg} text-white` : "bg-gray-100 text-gray-500",
@@ -66,8 +78,11 @@ export default function ComandasPage() {
   const [loadingClose, setLoadingClose] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
-  const [metodo, setMetodo] = useState<string>("Dinheiro");
-  const [valorRecebido, setValorRecebido] = useState<string>("");
+
+  // Split payment state
+  const [pagamentos, setPagamentos] = useState<PagamentoItem[]>([]);
+  const [metodoAtual, setMetodoAtual] = useState<string>("Dinheiro");
+  const [valorAtual, setValorAtual] = useState<string>("");
 
   const fetchComandas = useCallback(async () => {
     try {
@@ -165,19 +180,24 @@ export default function ComandasPage() {
       const res = await fetch(`/api/comandas/${selected.id}/fechar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ metodo_pagamento: metodo }),
+        body: JSON.stringify({ pagamentos }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
+      const metodoResumo = pagamentos.length === 1
+        ? pagamentos[0].metodo
+        : pagamentos.map((p) => p.metodo).join(" + ");
+
       toast.success(
-        `Comanda #${selected.numero} fechada! R$ ${Number(data.total).toFixed(2).replace(".", ",")} via ${metodo}`,
-        { icon: "ðŸŽ‰", duration: 4000 }
+        `Comanda #${selected.numero} fechada! R$ ${Number(data.total).toFixed(2).replace(".", ",")} via ${metodoResumo}`,
+        { icon: "🎉", duration: 4000 }
       );
       setSelected(null);
       setShowPayment(false);
       setShowConfirmClose(false);
-      setValorRecebido("");
+      setPagamentos([]);
+      setValorAtual("");
       fetchComandas();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao fechar comanda");
@@ -190,13 +210,22 @@ export default function ComandasPage() {
     ? selected.itens.reduce((sum, item) => sum + Number(item.valor_total), 0)
     : 0;
 
-  const valorRecebidoNum = Number(valorRecebido);
-  const dinheiroValido =
-    metodo !== "Dinheiro" || (valorRecebidoNum > 0 && valorRecebidoNum >= totalComanda);
-  const troco =
-    metodo === "Dinheiro" && valorRecebidoNum > 0 && valorRecebidoNum >= totalComanda
-      ? valorRecebidoNum - totalComanda
-      : 0;
+  const totalPago = pagamentos.reduce((s, p) => s + p.valor, 0);
+  const restante = Math.max(0, totalComanda - totalPago);
+  const pago = totalPago >= totalComanda && totalComanda > 0;
+  const valorAtualNum = Number(valorAtual) || 0;
+  const ultimoPagamentoDinheiro = pagamentos.length > 0 && pagamentos[pagamentos.length - 1].metodo === "Dinheiro";
+  const troco = pago && ultimoPagamentoDinheiro ? totalPago - totalComanda : 0;
+
+  const handleAdicionarPagamento = () => {
+    if (valorAtualNum <= 0) return;
+    setPagamentos((prev) => [...prev, { metodo: metodoAtual, valor: Number(valorAtualNum.toFixed(2)) }]);
+    setValorAtual("");
+  };
+
+  const handleRemoverPagamento = (idx: number) => {
+    setPagamentos((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -297,8 +326,9 @@ export default function ComandasPage() {
                   <button
                     id="fechar-comanda-btn"
                     onClick={() => {
-                      setValorRecebido("");
-                      setMetodo("Dinheiro");
+                      setPagamentos([]);
+                      setValorAtual("");
+                      setMetodoAtual("Dinheiro");
                       setShowPayment(true);
                     }}
                     disabled={selected.itens.length === 0}
@@ -385,7 +415,7 @@ export default function ComandasPage() {
         />
       )}
 
-      {/* â”€â”€ Confirmation dialog (2nd step) â”€â”€ */}
+      {/* ── Confirmation dialog (2nd step) ── */}
       {showConfirmClose && selected && (
         <div className="modal-overlay" onClick={() => setShowConfirmClose(false)}>
           <div
@@ -415,10 +445,16 @@ export default function ComandasPage() {
                     {selected.itens.length} {selected.itens.length === 1 ? "item" : "itens"}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Pagamento</span>
-                  <span className="font-semibold text-brand-dark">{metodo}</span>
-                </div>
+                {pagamentos.map((p, i) => {
+                  const color = getMetodoColor(p.metodo);
+                  const c = COLOR_MAP[color];
+                  return (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${c.badge}`}>{p.metodo}</span>
+                      <span className="font-semibold text-brand-dark">R$ {p.valor.toFixed(2).replace(".", ",")}</span>
+                    </div>
+                  );
+                })}
                 {troco > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Troco</span>
@@ -476,7 +512,7 @@ export default function ComandasPage() {
         </div>
       )}
 
-      {/* â”€â”€ Payment / Close Comanda modal (1st step) â”€â”€ */}
+      {/* ── Payment / Close Comanda modal (1st step) ── */}
       {showPayment && selected && !showConfirmClose && (
         <div className="modal-overlay" onClick={() => setShowPayment(false)}>
           <div
@@ -516,12 +552,12 @@ export default function ComandasPage() {
             </div>
 
             {/* Body */}
-            <div className="px-6 pt-10 pb-6 max-h-[60vh] overflow-y-auto">
+            <div className="px-6 pt-10 pb-6 max-h-[60vh] overflow-y-auto space-y-5">
               {/* Items summary */}
-              <details className="group mb-6">
+              <details className="group">
                 <summary className="flex items-center justify-between cursor-pointer text-sm font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-700 transition-colors">
                   <span>Itens da comanda</span>
-                  <span className="text-xs text-gray-400 group-open:rotate-180 transition-transform">â–¼</span>
+                  <span className="text-xs text-gray-400 group-open:rotate-180 transition-transform">▼</span>
                 </summary>
                 <div className="mt-3 space-y-1.5 max-h-36 overflow-y-auto pr-1">
                   {selected.itens.map((item) => (
@@ -540,111 +576,165 @@ export default function ComandasPage() {
                 </div>
               </details>
 
-              {/* Payment method */}
-              <div className="mb-6">
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-                  Forma de Pagamento
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {METODOS_PAGAMENTO.map(({ key, icon: Icon, color }) => {
-                    const style = getMetodoStyle(key, metodo, color);
+              {/* Pagamentos já adicionados */}
+              {pagamentos.length > 0 && (
+                <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                    Pagamentos registrados
+                  </p>
+                  {pagamentos.map((p, i) => {
+                    const color = getMetodoColor(p.metodo);
+                    const c = COLOR_MAP[color];
                     return (
-                      <button
-                        key={key}
-                        id={`fechar-${key.toLowerCase().replace(/ /g, "-")}-btn`}
-                        onClick={() => {
-                          setMetodo(key);
-                          if (key !== "Dinheiro") setValorRecebido("");
-                        }}
-                        className={`relative flex items-center gap-3 p-3.5 rounded-2xl transition-all duration-200 ${style.button}`}
-                      >
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${style.iconContainer}`}>
-                          <Icon size={18} />
-                        </div>
-                        <span className={`text-sm text-left leading-tight ${style.label}`}>{key}</span>
-                        {metodo === key && (
-                          <div className="absolute top-2 right-2">
-                            <FiCheckCircle size={14} className="text-current opacity-60" />
-                          </div>
-                        )}
-                      </button>
+                      <div key={i} className="flex items-center gap-3 bg-white rounded-xl px-3 py-2.5 shadow-sm border border-gray-100">
+                        <span className={`text-xs font-bold px-2 py-1 rounded-lg ${c.badge}`}>{p.metodo}</span>
+                        <span className="flex-1 text-sm font-bold text-brand-dark">
+                          R$ {p.valor.toFixed(2).replace(".", ",")}
+                        </span>
+                        <button
+                          onClick={() => handleRemoverPagamento(i)}
+                          className="text-gray-300 hover:text-red-400 transition-colors p-1"
+                          aria-label="Remover pagamento"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </div>
                     );
                   })}
+                  <div className="border-t border-gray-200 pt-2 mt-2">
+                    {!pago ? (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 font-medium">Falta pagar</span>
+                        <span className="font-bold text-brand-red">
+                          R$ {restante.toFixed(2).replace(".", ",")}
+                        </span>
+                      </div>
+                    ) : troco > 0 ? (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 font-medium">Troco</span>
+                        <span className="font-bold text-emerald-600">
+                          R$ {troco.toFixed(2).replace(".", ",")}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-emerald-600">
+                        <FiCheckCircle size={16} />
+                        <span className="text-sm font-bold">Pagamento completo</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Cash input */}
-              {metodo === "Dinheiro" && (
-                <div className="animate-slide-in">
-                  <div className="bg-gradient-to-br from-emerald-50 to-green-50 border-2 border-emerald-200 rounded-2xl p-5">
-                    <label className="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+              {/* Adicionar pagamento (enquanto falta pagar) */}
+              {!pago && (
+                <div className="space-y-4">
+                  {/* Payment method */}
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                      {pagamentos.length === 0 ? "Forma de Pagamento" : "Adicionar outro meio"}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {METODOS_PAGAMENTO.map(({ key, icon: Icon }) => {
+                        const style = getMetodoStyle(key, metodoAtual);
+                        return (
+                          <button
+                            key={key}
+                            id={`fechar-${key.toLowerCase().replace(/ /g, "-")}-btn`}
+                            onClick={() => {
+                              setMetodoAtual(key);
+                              setValorAtual("");
+                            }}
+                            className={`relative flex items-center gap-3 p-3.5 rounded-2xl transition-all duration-200 ${style.button}`}
+                          >
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors shrink-0 ${style.iconContainer}`}>
+                              <Icon size={18} />
+                            </div>
+                            <span className={`text-sm text-left leading-tight ${style.label}`}>{key}</span>
+                            {metodoAtual === key && (
+                              <div className="absolute top-2 right-2">
+                                <FiCheckCircle size={14} className="text-current opacity-60" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Valor input */}
+                  <div className={`rounded-2xl p-5 border-2 ${metodoAtual === "Dinheiro" ? "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200" : "bg-gray-50 border-gray-200"}`}>
+                    <label className={`block text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2 ${metodoAtual === "Dinheiro" ? "text-emerald-700" : "text-gray-500"}`}>
                       <FiDollarSign size={14} />
-                      Valor Recebido do Cliente
-                      <span className="text-red-500 text-sm">*</span>
+                      Valor {pagamentos.length > 0 ? "neste meio" : "recebido"}
                     </label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600 font-bold text-sm">R$</span>
+                      <span className={`absolute left-4 top-1/2 -translate-y-1/2 font-bold text-sm ${metodoAtual === "Dinheiro" ? "text-emerald-600" : "text-gray-400"}`}>R$</span>
                       <input
                         type="number"
                         step="0.01"
                         min={0}
-                        value={valorRecebido}
-                        onChange={(e) => setValorRecebido(e.target.value)}
-                        className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-emerald-200 bg-white text-lg font-bold text-brand-dark
-                                   focus:outline-none focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500
-                                   placeholder-gray-300 transition-all duration-200"
+                        value={valorAtual}
+                        onChange={(e) => setValorAtual(e.target.value)}
+                        className={`w-full pl-12 pr-4 py-4 rounded-xl border-2 bg-white text-lg font-bold text-brand-dark
+                                   focus:outline-none transition-all duration-200 placeholder-gray-300
+                                   ${metodoAtual === "Dinheiro"
+                                     ? "border-emerald-200 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                     : "border-gray-200 focus:ring-4 focus:ring-brand-red/10 focus:border-brand-red"
+                                   }`}
                         placeholder="0,00"
                         id="fechar-valor-recebido"
                         autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && valorAtualNum > 0) handleAdicionarPagamento();
+                        }}
                       />
                     </div>
 
-                    {valorRecebido !== "" && valorRecebidoNum < totalComanda && (
-                      <div className="mt-3 flex items-center gap-2 text-sm text-red-500 font-medium animate-slide-in">
-                        <FiAlertCircle size={14} />
-                        Valor insuficiente. Faltam R$ {(totalComanda - valorRecebidoNum).toFixed(2).replace(".", ",")}
-                      </div>
-                    )}
-
-                    {troco > 0 && (
-                      <div className="mt-4 bg-white rounded-xl p-4 flex items-center justify-between border border-emerald-200 animate-slide-in">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                            <FiDollarSign className="text-emerald-600" size={16} />
-                          </div>
-                          <span className="text-sm font-semibold text-gray-600">Troco</span>
-                        </div>
-                        <span className="text-xl font-extrabold text-emerald-600">
-                          R$ {troco.toFixed(2).replace(".", ",")}
-                        </span>
-                      </div>
-                    )}
-
+                    {/* Quick buttons */}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {[5, 10, 20, 50, 100].filter((v) => v >= totalComanda).slice(0, 4).map((valor) => (
-                        <button
-                          key={valor}
-                          onClick={() => setValorRecebido(String(valor))}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150
-                            ${valorRecebidoNum === valor
-                              ? "bg-emerald-500 text-white shadow-sm"
-                              : "bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                            }`}
-                        >
-                          R$ {valor},00
-                        </button>
-                      ))}
                       <button
-                        onClick={() => setValorRecebido(totalComanda.toFixed(2))}
+                        onClick={() => setValorAtual(restante.toFixed(2))}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150
-                          ${valorRecebidoNum === totalComanda
-                            ? "bg-emerald-500 text-white shadow-sm"
-                            : "bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                          ${valorAtualNum === restante
+                            ? "bg-brand-red text-white shadow-sm"
+                            : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
                           }`}
                       >
-                        Exato
+                        Pagar restante (R$ {restante.toFixed(2).replace(".", ",")})
                       </button>
+                      {metodoAtual === "Dinheiro" &&
+                        [5, 10, 20, 50, 100].filter((v) => v >= restante).slice(0, 3).map((valor) => (
+                          <button
+                            key={valor}
+                            onClick={() => setValorAtual(String(valor))}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150
+                              ${valorAtualNum === valor
+                                ? "bg-emerald-500 text-white shadow-sm"
+                                : "bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              }`}
+                          >
+                            R$ {valor},00
+                          </button>
+                        ))}
                     </div>
+
+                    <button
+                      onClick={handleAdicionarPagamento}
+                      disabled={valorAtualNum <= 0}
+                      className={`mt-4 w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all
+                        ${valorAtualNum > 0
+                          ? "bg-brand-dark text-white hover:bg-brand-dark/90 active:scale-[0.98]"
+                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        }`}
+                      id="fechar-adicionar-pagamento-btn"
+                    >
+                      <FiPlus size={16} />
+                      {pagamentos.length === 0
+                        ? `Registrar R$ ${valorAtualNum > 0 ? valorAtualNum.toFixed(2).replace(".", ",") : "0,00"} em ${metodoAtual}`
+                        : `Adicionar R$ ${valorAtualNum > 0 ? valorAtualNum.toFixed(2).replace(".", ",") : "0,00"} em ${metodoAtual}`
+                      }
+                    </button>
                   </div>
                 </div>
               )}
@@ -658,18 +748,18 @@ export default function ComandasPage() {
               <button
                 id="fechar-confirmar-btn"
                 onClick={() => setShowConfirmClose(true)}
-                disabled={!dinheiroValido}
+                disabled={!pago}
                 className={`flex-1 py-3.5 rounded-xl font-bold text-sm transition-all duration-200
                   flex items-center justify-center gap-2
-                  ${dinheiroValido
+                  ${pago
                     ? "bg-gradient-to-r from-brand-red to-rose-600 text-white shadow-lg shadow-brand-red/25 hover:shadow-xl active:scale-[0.97]"
                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                   }`}
               >
-                {metodo === "Dinheiro" && !dinheiroValido ? (
+                {!pago ? (
                   <>
                     <FiDollarSign size={16} />
-                    Informe o valor
+                    {pagamentos.length === 0 ? "Informe o pagamento" : `Falta R$ ${restante.toFixed(2).replace(".", ",")}`}
                   </>
                 ) : (
                   <>

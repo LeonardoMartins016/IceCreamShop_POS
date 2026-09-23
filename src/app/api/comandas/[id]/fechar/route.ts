@@ -8,10 +8,10 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { metodo_pagamento } = body;
+    const { pagamentos } = body;
 
-    if (!metodo_pagamento || !["Dinheiro", "PIX", "Cartão de Crédito", "Cartão de Débito"].includes(metodo_pagamento)) {
-      return NextResponse.json({ error: "Método de pagamento inválido" }, { status: 400 });
+    if (!pagamentos || pagamentos.length === 0) {
+      return NextResponse.json({ error: "Pagamento não informado" }, { status: 400 });
     }
 
     const comanda = await prisma.comanda.findUnique({
@@ -34,12 +34,29 @@ export async function POST(
       0
     );
 
+    const totalPago = pagamentos.reduce((acc: number, p: { valor: number }) => acc + Number(p.valor), 0);
+    if (Math.round(totalPago * 100) < Math.round(total * 100)) {
+      return NextResponse.json({ error: "Valor pago menor que o total" }, { status: 400 });
+    }
+
+    const troco = Math.max(0, Number((totalPago - total).toFixed(2)));
+
+    // Criar resumo textual (ex: "R$ 25,00 Dinheiro + R$ 25,00 Cartão de Crédito")
+    let metodo_pagamento_resumo = pagamentos
+      .map((p: { metodo: string; valor: number }) => `R$ ${Number(p.valor).toFixed(2).replace(".", ",")} ${p.metodo}`)
+      .join(" + ");
+
+    if (troco > 0) {
+      metodo_pagamento_resumo += ` (Troco: R$ ${troco.toFixed(2).replace(".", ",")})`;
+    }
+
+
     // Create venda and items, then close comanda — all in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const venda = await tx.venda.create({
         data: {
           total,
-          metodo_pagamento,
+          metodo_pagamento: metodo_pagamento_resumo,
           tipo: "Comanda",
           numero_comanda: comanda.numero,
           itens: {
@@ -52,8 +69,14 @@ export async function POST(
               teve_promocao: item.teve_promocao,
             })),
           },
+          pagamentos: {
+            create: pagamentos.map((p: { metodo: string; valor: number }) => ({
+              metodo_pagamento: p.metodo,
+              valor: p.valor,
+            })),
+          },
         },
-        include: { itens: true },
+        include: { itens: true, pagamentos: true },
       });
 
       await tx.comanda.update({
